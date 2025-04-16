@@ -1,0 +1,29 @@
+{
+  "name": "paragon-mcp",
+  "version": "1.0.0",
+  "repository": "git@github.com:useparagon/paragon-mcp.git",
+  "description": "Paragon MCP Server",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "tsx --env-file=.env src/index.ts",
+    "compile": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "Paragon",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.9.0",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "node-cache": "^5.1.2",
+    "patch-package": "^8.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.9"
+  }
+}
