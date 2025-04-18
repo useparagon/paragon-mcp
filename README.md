@@ -61,7 +61,8 @@ NODE_ENV=development
 - `MCP_SERVER_URL`: # The url of where your MCP Server will be hosted; This will be used to generate the magic links for your users, and also to setup your AI agents
 - `CONNECT_SDK_CDN_URL`: Paragon Connect SDK CDN URL (default: https://cdn.useparagon.com/latest/sdk/index.js)
 - `ACTION_KIT_BASE_URL`: Paragon ActionKit base URL (default: https://actionkit.useparagon.com)
-- `NODE_ENV`: Node environment (default: development)
+- `NODE_ENV`: Node environment (default: `development`)
+  <sub>**Note**: When `NODE_ENV` is set to `development`, the `/sse` parameter accepts any user ID in the `?user=` query parameter to automatically authorize as a specific user while testing locally.</sub>
 
 ## Running the Server
 
@@ -85,7 +86,7 @@ To use this MCP server with Cursor, add the following to your Cursor configurati
 {
   "mcpServers": {
     "mcp-actionkit-dev": {
-      "url": "http://localhost:3001/sse?user=connected-user"
+      "url": "http://localhost:3001/sse?user=[user-id]"
     }
   }
 }
@@ -94,7 +95,7 @@ To use this MCP server with Cursor, add the following to your Cursor configurati
 Replace:
 
 - `http://localhost:3001` with your server's domain
-- `connected-user` with your desired display name for the Connected User
+- `user-id` with the ID for the Connected User to use with ActionKit (this parameter only available in development mode)
 
 ### Claude
 
@@ -105,7 +106,7 @@ To use this MCP server with Claude, add the following to your Claude configurati
   "mcpServers": {
     "actionkit": {
       "command": "npx",
-      "args": ["mcp-remote", "http://localhost:3001/sse?user=connected-user"]
+      "args": ["mcp-remote", "http://localhost:3001/sse?user=[user-id]"]
     }
   }
 }
@@ -114,13 +115,26 @@ To use this MCP server with Claude, add the following to your Claude configurati
 Replace:
 
 - `http://localhost:3001` with your server's domain
-- `connected-user` with your desired display name for the Connected User
+- `user-id` with the ID for the Connected User to use with ActionKit (this parameter only available in development mode)
 
 ## API Endpoints
 
 - `GET /sse`: Establishes SSE connection for MCP communication
+  - This endpoint accepts an Authorization header with a Paragon User Token as the Bearer token.
 - `POST /messages`: Handles MCP message processing
 - `GET /setup`: Handles integration setup flow
+
+## Adding Custom Actions with OpenAPI
+
+To add your own Custom Action definitions:
+
+1. Set `ENABLE_CUSTOM_OPENAPI_ACTIONS=true` in your environment (e.g. .env file).
+2. Create an `openapi/` subfolder at the root of the repository.
+3. Add OpenAPI specs in YAML or JSON format, using the integration name as the file name.
+    - For example, if you are adding Custom Actions for Google Calendar, the OpenAPI specs should be located at: `openapi/googleCalendar.json`.
+    - If you are adding Actions for a Custom Integration, use the SDK name of the integration, with the `custom.` prefix: `openapi/custom.spotify.json`.
+
+The MCP will automatically match OpenAPI files with Active integrations in your Paragon project to augment the list of available tools returned by the MCP.
 
 ## License
 
