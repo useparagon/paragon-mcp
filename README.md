@@ -123,6 +123,13 @@ To add your own Custom Action definitions:
 
 The MCP will automatically match OpenAPI files with Active integrations in your Paragon project to augment the list of available tools returned by the MCP.
 
+## Using experimental Proxy API tool
+
+> [!WARNING]
+> Enabling this tool allows your agent to write its own API requests with the account you connect. Always review the request before allowing the agent to use this tool to safeguard against unexpected changes.
+
+To allow the agent to write its own requests to the integration API, set `ENABLE_PROXY_API_TOOL=true` in your environment.
+
 ## License
 
 This project is open source and available under the [MIT License](https://opensource.org/license/mit).
