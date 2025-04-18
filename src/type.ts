@@ -183,3 +183,12 @@ export interface CustomIntegration {
   isPublished: boolean;
   slug: string;
 }
+
+export type ProxyApiRequestToolArgs = {
+  integration: string;
+  url: string;
+  httpMethod: string;
+  queryParams?: Record<string, any>;
+  headers?: Record<string, string>;
+  body?: Record<string, any>;
+};

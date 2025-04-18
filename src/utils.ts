@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import fs from "fs";
 
 import { UserNotConnectedError } from "./errors";
-import { ExtendedTool, LinkConnectionProps } from "./type";
+import { ExtendedTool, LinkConnectionProps, Integration, ProxyApiRequestToolArgs } from "./type";
 import { createAccessToken } from "./access-tokens";
 import { openApiRequests } from "./openapi";
 import { OpenAPIV3 } from "openapi-types";
@@ -21,6 +21,7 @@ export const envs = z
     ACTION_KIT_BASE_URL: z.string().default("https://actionkit.useparagon.com"),
     NODE_ENV: z.enum(["development", "production"]).default("development"),
     ENABLE_CUSTOM_OPENAPI_ACTIONS: z.boolean({ coerce: true }).default(false),
+    ENABLE_PROXY_API_TOOL: z.boolean({ coerce: true }).default(false),
   })
   .parse(process.env);
 
@@ -71,7 +72,7 @@ export async function performOpenApiAction(
   )}`;
 
   let url;
-  if (action.integrationName.startsWith("custom")) {
+  if (action.integrationName.startsWith("custom.")) {
     url = `https://proxy.useparagon.com/projects/${
       envs.PROJECT_ID
     }/sdk/proxy/custom/${action.integrationId!}${resolvedRequestPath}`;
@@ -85,7 +86,6 @@ export async function performOpenApiAction(
   );
   url += `?${urlParams.toString()}`;
 
-  console.log(url);
   const response = await fetch(url, {
     method: request.method,
     headers: {
@@ -293,4 +293,118 @@ export async function handleResponseErrors(response: Response): Promise<void> {
       `HTTP error; status: ${response.status}; message: ${errorResponse.message}`
     );
   }
+}
+
+export function createProxyApiTool(integrations: Integration[]): ExtendedTool {
+  const integrationNames = integrations.map((i) =>
+    i.type === "custom" && i.customIntegration
+      ? `custom.${i.customIntegration.name}`
+      : i.type
+  );
+
+  return {
+    name: "CALL_API_REQUEST",
+    description: `Call an API if no tool is available for an integration that matches the user's request. Always follow the following guidelines:
+- Before using this tool, respond with a plan that outlines the requests that you will need to make to fulfill the user's goal.
+- If you find that you need to make multiple requests to fulfill the user's goal, you can use this tool multiple times.
+- If there are errors, don't give up! Try to fix them by using the response to look at the error and adjust the request body accordingly.`,
+    integrationName: "general",
+    integrationId: undefined,
+    requiredFields: ["integration", "url", "httpMethod"],
+    isOpenApiTool: false,
+    inputSchema: {
+      type: "object",
+      properties: {
+        integration: {
+          type: "string",
+          description: "The name of the integration to use for this request.",
+          enum: integrationNames,
+        },
+        url: {
+          type: "string",
+          description:
+            "Use the full URL when specifying the `url` parameter, including the base URL. It should NEVER be a relative path - always a full URL.",
+        },
+        httpMethod: {
+          type: "string",
+          enum: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+        },
+        queryParams: {
+          type: "object",
+          additionalProperties: true,
+        },
+        headers: {
+          type: "object",
+          additionalProperties: {
+            type: "string",
+          },
+          description: "Do not include any Authorization headers.",
+        },
+        body: {
+          type: "object",
+          additionalProperties: true,
+        },
+      },
+      required: ["integration", "url", "httpMethod"],
+      additionalProperties: false,
+    },
+  };
+}
+
+export async function performProxyApiRequest(
+  args: ProxyApiRequestToolArgs,
+  jwt: string
+): Promise<any> {
+  const isCustomIntegration = args.integration.includes("custom.");
+  const queryStr = args.queryParams
+    ? `?${new URLSearchParams(
+        Object.entries(args.queryParams).reduce((acc, [key, value]) => {
+          acc[key] = String(value);
+          return acc;
+        }, {} as Record<string, string>)
+      ).toString()}`
+    : "";
+
+  let path;
+  if (isCustomIntegration) {
+    const customName = args.integration.split(".")[1].toLowerCase();
+    const integration = (await getAllIntegrations(jwt))?.find(
+      (i: Integration) =>
+        i.type === "custom" &&
+        i.customIntegration?.name.toLowerCase() === customName
+    );
+
+    if (!integration) {
+      throw new Error(`Custom integration ${customName} not found`);
+    }
+
+    path = `custom/${integration.id}`;
+  } else {
+    path = args.integration;
+  }
+
+  const url = `https://proxy.useparagon.com/projects/${envs.PROJECT_ID}/sdk/proxy/${path}`;
+
+  const response = await fetch(url, {
+    method: args.httpMethod,
+    body:
+      args.httpMethod.toUpperCase() === "GET"
+        ? undefined
+        : JSON.stringify(args.body),
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      "Content-Type": "application/json",
+      ...(isCustomIntegration
+        ? { "X-Paragon-Proxy-Url": `${args.url}${queryStr}` }
+        : {}),
+      ...(args.integration === "slack"
+        ? { "X-Paragon-Use-Slack-Token-Type": "user" }
+        : {}),
+      ...args.headers,
+    },
+  });
+
+  await handleResponseErrors(response);
+
+  return await response.text();
 }

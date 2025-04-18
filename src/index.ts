@@ -4,8 +4,8 @@ import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
 import { createAccessTokenStore, getAccessTokenById } from "./access-tokens";
 import { registerTools } from "./tools";
-import { ExtendedTool, TransportPayload } from "./type";
-import { envs, Logger, signJwt, getSigningKey, getAllIntegrations } from "./utils";
+import { ExtendedTool, Integration, TransportPayload } from "./type";
+import { envs, Logger, signJwt, getSigningKey, getAllIntegrations, createProxyApiTool } from "./utils";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { loadCustomOpenApiTools } from "./openapi";
 
@@ -15,9 +15,12 @@ const server = new Server({
   version: "1.0.0",
 });
 let extraTools: Array<ExtendedTool> = [];
+let integrations: Array<Integration> = await getAllIntegrations(signJwt({ userId: envs.PROJECT_ID }));
 if (envs.ENABLE_CUSTOM_OPENAPI_ACTIONS) {
-  const integrations = await getAllIntegrations(signJwt({ userId: envs.PROJECT_ID }));
   extraTools = await loadCustomOpenApiTools(integrations);
+}
+if (envs.ENABLE_PROXY_API_TOOL) {
+  extraTools = extraTools.concat(createProxyApiTool(integrations));
 }
 registerTools({ server, extraTools, transports });
 
@@ -25,8 +28,6 @@ async function main() {
   createAccessTokenStore();
 
   const app = express();
-
-  let toolsRegistered = false;
 
   app.use("/static", express.static("static"));
 

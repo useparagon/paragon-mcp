@@ -6,13 +6,18 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { JsonResponseError, UserNotConnectedError } from "./errors";
-import { ExtendedTool, TransportPayload } from "./type";
+import {
+  ExtendedTool,
+  ProxyApiRequestToolArgs,
+  TransportPayload,
+} from "./type";
 import {
   decodeJwt,
   generateSetupLink,
   performAction,
   getTools,
   performOpenApiAction,
+  performProxyApiRequest,
 } from "./utils";
 
 const ajv = new Ajv({ allErrors: true, strict: false });
@@ -92,6 +97,11 @@ export function registerTools({
             args as { params: any; body: any },
             transports[sessionId].currentJwt
           );
+        } else if (tool.name === "CALL_API_REQUEST") {
+          response = await performProxyApiRequest(
+            args as ProxyApiRequestToolArgs,
+            transports[sessionId].currentJwt
+          );
         } else {
           response = await performAction(
             tool.name,
@@ -128,7 +138,10 @@ export function registerTools({
             }
             setupUrl = await generateSetupLink({
               ...error.jsonResponse.meta,
-              integrationName: tool.integrationName,
+              integrationName:
+                tool.name === "CALL_API_REQUEST"
+                  ? (args as ProxyApiRequestToolArgs).integration
+                  : tool.integrationName,
               userId,
             });
 
