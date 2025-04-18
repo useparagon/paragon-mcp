@@ -7,7 +7,7 @@ import {
 
 import { JsonResponseError, UserNotConnectedError } from "./errors";
 import { ExtendedTool, TransportPayload } from "./type";
-import { decodeJwt, generateSetupLink, performAction } from "./utils";
+import { decodeJwt, generateSetupLink, performAction, getTools } from "./utils";
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 
@@ -32,9 +32,22 @@ export function registerTools({
     },
   });
 
-  server.setRequestHandler(ListToolsRequestSchema, async (_params, { sessionId }) => {
-    return { tools: toolsList };
-  });
+  server.setRequestHandler(
+    ListToolsRequestSchema,
+    async (_params, { sessionId }) => {
+      if (!sessionId || !transports[sessionId]) {
+        throw new Error(`No session found by ID: ${sessionId}`);
+      }
+      const sessionData = transports[sessionId];
+
+      if (sessionData.cachedTools) {
+        return { tools: sessionData.cachedTools };
+      }
+      const dynamicTools = await getTools(sessionData.currentJwt);
+      transports[sessionId].cachedTools = dynamicTools;
+      return { tools: dynamicTools };
+    }
+  );
 
   server.setRequestHandler(
     CallToolRequestSchema,
@@ -43,8 +56,12 @@ export function registerTools({
         throw new Error(`No session found by ID: ${sessionId}`);
       }
       const { name, arguments: args } = request.params;
-
-      const tool = tools.find((t) => t.name === name);
+      const sessionData = transports[sessionId];
+      if (!sessionData.cachedTools) {
+        sessionData.cachedTools = await getTools(sessionData.currentJwt);
+      }
+      const dynamicTools = sessionData.cachedTools;
+      const tool = dynamicTools.find((t) => t.name === name);
       if (!tool) {
         throw new Error(`Tool not found: ${name}`);
       }

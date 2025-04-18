@@ -30,6 +30,7 @@ export interface ExtendedTool extends Tool {
 export type TransportPayload = {
   transport: SSEServerTransport;
   currentJwt: string;
+  cachedTools?: ExtendedTool[];
 };
 
 interface BaseIntegration {
