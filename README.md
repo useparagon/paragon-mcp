@@ -107,9 +107,16 @@ Replace:
 ## API Endpoints
 
 - `GET /sse`: Establishes SSE connection for MCP communication
-  - This endpoint accepts an Authorization header with a Paragon User Token as the Bearer token.
 - `POST /messages`: Handles MCP message processing
 - `GET /setup`: Handles integration setup flow
+
+### Authorization
+
+The `GET /sse` endpoint (base URL for the MCP using the SSE transport) accepts an `Authorization` header with a Paragon User Token as the Bearer token.
+
+The Paragon User Token is an RS256-encoded JWT that is verified using the public key stored by Paragon. Your MCP client (e.g. your application server or the service running your AI agent) will sign the User Token using the matching private key generated in the Paragon dashboard, which only your server has access to.
+
+This allows the MCP to validate the authenticity of the requesting user using the JWT signature and public key. Once authenticated, the MCP will associate the user ID encoded in the JWT with the active MCP session.
 
 ## Adding Custom Actions with OpenAPI
 
