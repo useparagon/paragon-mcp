@@ -24,9 +24,17 @@ async function main() {
   app.use("/static", express.static("static"));
 
   app.get("/sse", async (req, res) => {
-    const user = req.query.user as string;
+    let currentJwt = req.headers.authorization;
 
-    const currentJwt = signJwt({ userId: user });
+    if (currentJwt && currentJwt.startsWith('Bearer ')) {
+      currentJwt = currentJwt.slice(7).trim();
+    } else if (process.env.NODE_ENV === "development") {
+      // In development, allow `user=` query parameter to be used
+      currentJwt = signJwt({ userId: req.query.user as string });;
+    } else {
+      return res.status(401).send("Unauthorized");
+    }
+
     const tools = await getTools(currentJwt);
 
     const transport = new SSEServerTransport("/messages", res);
