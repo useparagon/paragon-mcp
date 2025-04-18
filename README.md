@@ -12,11 +12,25 @@
 
 # Paragon MCP Server
 
-A server implementation for Model Context Protocol (MCP) that integrates with Paragon's action system. This is an open-source project that enables developers to build custom integrations with Paragon's platform via ActionKit.
+A server implementation for Model Context Protocol (MCP) that integrates with [ActionKit](https://useparagon.com/actionkit), an API by Paragon that provides access to prebuilt actions for 130+ integrations to your users' SaaS applications.
+
+## Features
+
+| Example Chat | Setup Link |
+|:-------------:|:----------:|
+| ![Chat Interface](static/chat.png) | ![Setup Link Example](static/setup-link.png) |
+
+- Add user-facing integrations from your Paragon account as available capabilities to your agent, for example:
+  - **Google Calendar**: Create or update events and get calendar availability on your user's behalf.
+  - **Salesforce**: Query and manage records from your user's CRM.
+  - **Slack**: Send notifications to your user's Slack workspace.
+- Automatically prompt users to authorize integrations with the [Connect Portal](https://docs.useparagon.com/getting-started/displaying-the-connect-portal), a prebuilt component for secure OAuth 2.0 and API Key intake flows.
+- Optionally: add [Custom Actions](#adding-custom-actions-with-openapi) or [direct API access](#using-experimental-proxy-api-tool) as available tools in the MCP.
+
 
 ## Prerequisites
 
-To start using the Paragon MCP Server, you will need to [sign up and register for an account](https://dashboard.useparagon.com/signup).
+To start using the Paragon MCP Server, you will need to [sign up and register for a Paragon account](https://dashboard.useparagon.com/signup).
 
 - Node.js @ 22.14.0
 - npm package manager
@@ -30,7 +44,7 @@ To start using the Paragon MCP Server, you will need to [sign up and register fo
 npm install
 ```
 
-## Environment Variables
+### Environment Variables
 
 Create a `.env` file in the root directory by running:
 ```
@@ -51,7 +65,7 @@ Set up the environment variables as described below:
   - `NODE_ENV`: Node environment (default: `development`)
     <sub>**Note**: When `NODE_ENV` is set to `development`, the `/sse` parameter accepts any user ID in the `?user=` query parameter to automatically authorize as a specific user while testing locally.</sub>
 
-## Running the Server
+### Running the Server
 
 Start the server using:
 
