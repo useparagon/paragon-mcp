@@ -1,23 +1,25 @@
 import express from "express";
 import jwt from "jsonwebtoken";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
 import { createAccessTokenStore, getAccessTokenById } from "./access-tokens";
 import { registerTools } from "./tools";
 import { TransportPayload } from "./type";
 import { envs, getTools, Logger, signJwt, getSigningKey } from "./utils";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+
+let transports: Record<string, TransportPayload> = {};
+const server = new Server({
+  name: "paragon-mcp",
+  version: "1.0.0",
+});
+const tools = await getTools(signJwt({ userId: envs.PROJECT_ID }));
+registerTools({ server, tools, transports });
 
 async function main() {
   createAccessTokenStore();
 
-  const server = new McpServer({
-    name: "paragon-mcp",
-    version: "1.0.0",
-  });
-
   const app = express();
-  const transports: Record<string, TransportPayload> = {};
 
   let toolsRegistered = false;
 
@@ -26,16 +28,14 @@ async function main() {
   app.get("/sse", async (req, res) => {
     let currentJwt = req.headers.authorization;
 
-    if (currentJwt && currentJwt.startsWith('Bearer ')) {
+    if (currentJwt && currentJwt.startsWith("Bearer ")) {
       currentJwt = currentJwt.slice(7).trim();
-    } else if (process.env.NODE_ENV === "development") {
+    } else if (envs.NODE_ENV === "development" && req.query.user) {
       // In development, allow `user=` query parameter to be used
-      currentJwt = signJwt({ userId: req.query.user as string });;
+      currentJwt = signJwt({ userId: req.query.user as string });
     } else {
       return res.status(401).send("Unauthorized");
     }
-
-    const tools = await getTools(currentJwt);
 
     const transport = new SSEServerTransport("/messages", res);
 
@@ -54,24 +54,25 @@ async function main() {
       delete transports[transport.sessionId];
     });
 
-    if (!toolsRegistered) {
-      registerTools({ server, tools, transports });
-      toolsRegistered = true;
-    }
-
-    return server.connect(transport);
+    await server.connect(transport);
   });
 
   app.post("/messages", async (req, res) => {
     const sessionId = req.query.sessionId as string;
     const transportPayload = transports[sessionId];
 
-    if (transportPayload) {
-      return transportPayload.transport.handlePostMessage(req, res);
+    if (sessionId && transportPayload) {
+      try {
+        return await transportPayload.transport.handlePostMessage(req, res);
+      } catch (err) {
+        if (!res.headersSent) {
+          return res.status(500).send(err instanceof Error ? err.message : err);
+        }
+      }
     }
 
     console.error("No transport found for sessionId", sessionId);
-    return res.status(400).json({ error: "No transport found for sessionId" });
+    return res.status(404).json({ error: "No transport found for sessionId" });
   });
 
   app.get("/setup", async (req, res) => {
@@ -123,3 +124,15 @@ async function main() {
 }
 
 main();
+
+process.on("SIGTERM", async () => {
+  console.log("Closing all transports...");
+  await Promise.all(
+    Object.values(transports).map(async (transport) => {
+      await transport.transport.close();
+    })
+  );
+  await server.close();
+  transports = {};
+  process.exit(0);
+});
