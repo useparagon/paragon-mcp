@@ -32,37 +32,24 @@ npm install
 
 ## Environment Variables
 
-Create a `.env` file in the root directory with the following variables. You can use `.env.example` as a template:
-
-```env
-# Required
-PROJECT_ID=your_project_id
-
-# Required (one of these must be set)
-SIGNING_KEY=your_signing_key
-SIGNING_KEY_PATH=absolute_path_to_signing_key_file
-
-# Required for production
-MCP_SERVER_URL=your_public_url_for_this_mcp_server
-
-# Optional
-PORT=3001
-CONNECT_SDK_CDN_URL=https://cdn.useparagon.com/latest/sdk/index.js
-ACTION_KIT_BASE_URL=https://actionkit.useparagon.com
-NODE_ENV=development
+Create a `.env` file in the root directory by running:
+```
+cp .env.example .env
 ```
 
-### Environment Variables Description
+Set up the environment variables as described below:
 
-- `PROJECT_ID`: Your Paragon project ID (required)
-- `SIGNING_KEY`: Your JWT signing key (required if SIGNING_KEY_PATH is not set)
-- `SIGNING_KEY_PATH`: Path to your JWT signing key file (required if SIGNING_KEY is not set)
-- `PORT`: Server port (default: 3001)
-- `MCP_SERVER_URL`: # The url of where your MCP Server will be hosted; This will be used to generate the magic links for your users, and also to setup your AI agents
-- `CONNECT_SDK_CDN_URL`: Paragon Connect SDK CDN URL (default: https://cdn.useparagon.com/latest/sdk/index.js)
-- `ACTION_KIT_BASE_URL`: Paragon ActionKit base URL (default: https://actionkit.useparagon.com)
-- `NODE_ENV`: Node environment (default: `development`)
-  <sub>**Note**: When `NODE_ENV` is set to `development`, the `/sse` parameter accepts any user ID in the `?user=` query parameter to automatically authorize as a specific user while testing locally.</sub>
+- **Required:**
+  - `PROJECT_ID`: Your Paragon project ID)
+  - `SIGNING_KEY`: Your JWT signing key (requiredif SIGNING_KEY_PATH is not set)
+  - `SIGNING_KEY_PATH`: Path to your JWT signing key file (required if SIGNING_KEY is not set)
+- Optional:
+  - `PORT`: Server port (default: 3001)
+  - `MCP_SERVER_URL`: The URL of your hosted MCP Server. This will be used to generate Setup Links when your users are prompted to install integrations. (default: `http://localhost:3001`)
+  - `CONNECT_SDK_CDN_URL`: Paragon Connect SDK CDN URL (default: https://cdn.useparagon.com/latest/sdk/index.js)
+  - `ACTION_KIT_BASE_URL`: Paragon ActionKit base URL (default: https://actionkit.useparagon.com)
+  - `NODE_ENV`: Node environment (default: `development`)
+    <sub>**Note**: When `NODE_ENV` is set to `development`, the `/sse` parameter accepts any user ID in the `?user=` query parameter to automatically authorize as a specific user while testing locally.</sub>
 
 ## Running the Server
 
