@@ -135,6 +135,10 @@ export function signJwt({
   );
 }
 
+export function decodeJwt(token: string) {
+  return jwt.decode(token, { complete: true });
+}
+
 export async function getTools(jwt: string): Promise<Array<any>> {
   const tools: Array<ExtendedTool> = [];
   const actionPayload = await getActions(jwt);
