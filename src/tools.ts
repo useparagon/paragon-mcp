@@ -7,25 +7,25 @@ import {
 
 import { JsonResponseError, UserNotConnectedError } from "./errors";
 import { ExtendedTool, TransportPayload } from "./type";
-import { decodeJwt, generateSetupLink, performAction, getTools } from "./utils";
+import {
+  decodeJwt,
+  generateSetupLink,
+  performAction,
+  getTools,
+  performOpenApiAction,
+} from "./utils";
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 
 export function registerTools({
   server,
-  tools,
+  extraTools = [],
   transports,
 }: {
   server: Server;
-  tools: Array<ExtendedTool>;
+  extraTools?: Array<ExtendedTool>;
   transports: Record<string, TransportPayload>;
 }) {
-  const toolsList = tools.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    inputSchema: tool.inputSchema,
-  }));
-
   server.registerCapabilities({
     tools: {
       listChanged: true,
@@ -44,8 +44,8 @@ export function registerTools({
         return { tools: sessionData.cachedTools };
       }
       const dynamicTools = await getTools(sessionData.currentJwt);
-      transports[sessionId].cachedTools = dynamicTools;
-      return { tools: dynamicTools };
+      transports[sessionId].cachedTools = dynamicTools.concat(extraTools);
+      return { tools: dynamicTools.concat(extraTools) };
     }
   );
 
@@ -85,11 +85,20 @@ export function registerTools({
           };
         }
 
-        const response = await performAction(
-          tool.name,
-          args,
-          transports[sessionId].currentJwt
-        );
+        let response;
+        if (tool.isOpenApiTool) {
+          response = await performOpenApiAction(
+            tool,
+            args as { params: any; body: any },
+            transports[sessionId].currentJwt
+          );
+        } else {
+          response = await performAction(
+            tool.name,
+            args,
+            transports[sessionId].currentJwt
+          );
+        }
 
         if (response === null) {
           return {

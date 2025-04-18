@@ -4,17 +4,22 @@ import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
 import { createAccessTokenStore, getAccessTokenById } from "./access-tokens";
 import { registerTools } from "./tools";
-import { TransportPayload } from "./type";
-import { envs, getTools, Logger, signJwt, getSigningKey } from "./utils";
+import { ExtendedTool, TransportPayload } from "./type";
+import { envs, Logger, signJwt, getSigningKey, getAllIntegrations } from "./utils";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { loadCustomOpenApiTools } from "./openapi";
 
 let transports: Record<string, TransportPayload> = {};
 const server = new Server({
   name: "paragon-mcp",
   version: "1.0.0",
 });
-const tools = await getTools(signJwt({ userId: envs.PROJECT_ID }));
-registerTools({ server, tools, transports });
+let extraTools: Array<ExtendedTool> = [];
+if (envs.ENABLE_CUSTOM_OPENAPI_ACTIONS) {
+  const integrations = await getAllIntegrations(signJwt({ userId: envs.PROJECT_ID }));
+  extraTools = await loadCustomOpenApiTools(integrations);
+}
+registerTools({ server, extraTools, transports });
 
 async function main() {
   createAccessTokenStore();

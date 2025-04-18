@@ -7,35 +7,60 @@ import { readdir, readFile } from "fs/promises";
 import { OpenAPIV3_1 } from "openapi-types";
 import * as path from "path";
 import yaml from "yaml";
-import { Integration } from "./type";
+import { ExtendedTool, Integration } from "./type";
+
+export const openApiRequests: Record<
+  string,
+  {
+    baseUrl?: string;
+    method: OpenAPIV3_1.HttpMethods;
+    path: string;
+    params: OpenAPIV3_1.ParameterObject[];
+  }
+> = {};
 
 export async function loadCustomOpenApiTools(
   integrations: Integration[]
-): Promise<Record<string, JSONSchema>> {
-  const files = await readdir(path.join(process.cwd(), "openapi"));
+): Promise<ExtendedTool[]> {
+  let files;
+  try {
+    files = await readdir(path.join(process.cwd(), "openapi"));
+  } catch (err) {
+    console.error(
+      "Custom OpenAPI tools was enabled, but openapi/ folder was not found",
+      err instanceof Error ? err.message : String(err)
+    );
+    return [];
+  }
+
+  const findMatchingIntegration = (file: string): Integration | undefined => {
+    return integrations.find((integration) => {
+      if (integration.type === "custom") {
+        return file.includes(
+          `custom.${integration
+            .customIntegration!.name.split(" ")
+            .join("")
+            .toLowerCase()}`
+        );
+      }
+      return file.split(".")[0] === integration.type;
+    });
+  };
+  
   const customOpenApiTools = await Promise.all(
     files
-      .filter((file) =>
-        integrations.find((integration) => {
-          if (integration.type === "custom") {
-            return file.includes(
-              `custom.${integration.customIntegration!}.name
-                .split(" ")
-                .join("")
-                .toLowerCase()}`
-            );
-          }
-          return file.split(".")[0] === integration.type;
-        })
-      )
+      .filter((file) => findMatchingIntegration(file))
       .map(async (file) => {
         const content = await readFile(
           path.join(process.cwd(), "openapi", file),
           "utf-8"
         );
         const integrationName = file.substring(0, file.lastIndexOf("."));
+        const matchingIntegration = findMatchingIntegration(file);
+        
         return {
           integrationName,
+          integrationId: matchingIntegration!.id,
           content: (file.endsWith(".yml")
             ? yaml.parse(content)
             : JSON.parse(content)) as OpenAPIV3_1.Document,
@@ -43,13 +68,12 @@ export async function loadCustomOpenApiTools(
       })
   );
 
-  // Convert OpenAPI specs to JSON Schema function definition
-  const integrationSpecs: Record<string, Record<string, JSONSchema>> = {};
+  const customTools: ExtendedTool[] = [];
+
   for (const item of customOpenApiTools) {
     const spec = (await $RefParser.dereference(
       item.content
     )) as OpenAPIV3_1.Document;
-    integrationSpecs[item.integrationName] = {};
 
     if (spec.paths) {
       const tools = spec.paths;
@@ -60,8 +84,7 @@ export async function loadCustomOpenApiTools(
           const requestParameters = request.parameters as
             | OpenAPIV3_1.ParameterObject[]
             | undefined;
-          const requestName =
-            request.summary ?? `${method} ${path}`;
+          const requestName = request.summary ?? `${method} ${path}`;
           let paramsSchema;
           let bodySchema;
 
@@ -77,37 +100,58 @@ export async function loadCustomOpenApiTools(
               required: requestParameters.map((param) => param.name),
             };
           }
-          if (request.requestBody) {
-            bodySchema = fromSchema(request.requestBody);
+          if (
+            request.requestBody &&
+            "content" in request.requestBody &&
+            "application/json" in request.requestBody.content
+          ) {
+            bodySchema = fromSchema(
+              request.requestBody.content["application/json"]
+                .schema as OpenAPIV3_1.SchemaObject
+            );
           }
 
-          integrationSpecs[item.integrationName][
-            requestName.split(" ").join("_").toLowerCase()
-          ] = {
-            function: {
-              name: requestName.split(" ").join("_").toLowerCase(),
-              description: `${requestName} - ${request.description}`,
-              parameters: {
-                type: "object",
-                properties: {
-                  ...(paramsSchema && { params: paramsSchema }),
-                  ...(bodySchema && { body: bodySchema }),
-                },
-                required: [
-                  ...(Object.keys(paramsSchema?.properties ?? {}).length > 0
-                    ? ["params"]
-                    : []),
-                  ...(Object.keys(bodySchema?.properties ?? {}).length > 0
-                    ? ["body"]
-                    : []),
-                ],
-              },
-            },
+          const requiredFields = [
+            ...(Object.keys(paramsSchema?.properties ?? {}).length > 0
+              ? ["params"]
+              : []),
+            ...(Object.keys(bodySchema?.properties ?? {}).length > 0
+              ? ["body"]
+              : []),
+          ];
+
+          const toolName = `${item.integrationName.toUpperCase()}_${requestName
+            .split(" ")
+            .join("_")
+            .toUpperCase()}`;
+
+          openApiRequests[toolName] = {
+            baseUrl: spec.servers?.[0]?.url,
+            method: method as OpenAPIV3_1.HttpMethods,
+            path: tool,
+            params: request.parameters as OpenAPIV3_1.ParameterObject[],
           };
+
+          customTools.push({
+            isOpenApiTool: true,
+            integrationName: item.integrationName,
+            integrationId: item.integrationId,
+            name: toolName,
+            description: `${requestName} - ${request.description}`,
+            inputSchema: {
+              type: "object",
+              properties: {
+                ...(paramsSchema && { params: paramsSchema }),
+                ...(bodySchema && { body: bodySchema }),
+              },
+              required: requiredFields,
+            },
+            requiredFields,
+          });
         }
       }
     }
   }
 
-  return integrationSpecs;
+  return customTools;
 }

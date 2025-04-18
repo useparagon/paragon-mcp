@@ -24,7 +24,9 @@ export type UserNotConnectedResponse = {
 
 export interface ExtendedTool extends Tool {
   integrationName: string;
+  integrationId?: string;
   requiredFields: string[];
+  isOpenApiTool: boolean;
 }
 
 export type TransportPayload = {
