@@ -58,6 +58,7 @@ Set up the environment variables as described below:
   - `SIGNING_KEY`: Your JWT signing key (requiredif SIGNING_KEY_PATH is not set)
   - `SIGNING_KEY_PATH`: Path to your JWT signing key file (required if SIGNING_KEY is not set)
 - Optional:
+  - `LIMIT_TO_INTEGRATIONS`: Comma-separated list of integration names to limit the types of available tools.
   - `PORT`: Server port (default: 3001)
   - `MCP_SERVER_URL`: The URL of your hosted MCP Server. This will be used to generate Setup Links when your users are prompted to install integrations. (default: `http://localhost:3001`)
   - `CONNECT_SDK_CDN_URL`: Paragon Connect SDK CDN URL (default: https://cdn.useparagon.com/latest/sdk/index.js)
