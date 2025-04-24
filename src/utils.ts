@@ -3,7 +3,12 @@ import jwt from "jsonwebtoken";
 import fs from "fs";
 
 import { UserNotConnectedError } from "./errors";
-import { ExtendedTool, LinkConnectionProps, Integration, ProxyApiRequestToolArgs } from "./type";
+import {
+  ExtendedTool,
+  LinkConnectionProps,
+  Integration,
+  ProxyApiRequestToolArgs,
+} from "./type";
 import { createAccessToken } from "./access-tokens";
 import { openApiRequests } from "./openapi";
 import { OpenAPIV3 } from "openapi-types";
@@ -22,6 +27,15 @@ export const envs = z
     NODE_ENV: z.enum(["development", "production"]).default("development"),
     ENABLE_CUSTOM_OPENAPI_ACTIONS: z.boolean({ coerce: true }).default(false),
     ENABLE_PROXY_API_TOOL: z.boolean({ coerce: true }).default(false),
+    LIMIT_TO_INTEGRATIONS: z
+      .string()
+      .default("")
+      .transform((val) =>
+        val
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
   })
   .parse(process.env);
 
@@ -65,7 +79,7 @@ export async function performOpenApiAction(
   }
 
   const resolvedRequestPath = `${
-    request.baseUrl ? `/${request.baseUrl}` : ""
+    request.baseUrl ? request.baseUrl : ""
   }${request.path.replace(
     /\{(\w+)\}/g,
     (_match: string, p1: string) => actionParams.params[p1]
@@ -75,22 +89,24 @@ export async function performOpenApiAction(
   if (action.integrationName.startsWith("custom.")) {
     url = `https://proxy.useparagon.com/projects/${
       envs.PROJECT_ID
-    }/sdk/proxy/custom/${action.integrationId!}${resolvedRequestPath}`;
+    }/sdk/proxy/custom/${action.integrationId!}`;
   } else {
-    url = `https://proxy.useparagon.com/projects/${envs.PROJECT_ID}/sdk/proxy/${action.integrationName}/${resolvedRequestPath}`;
+    url = `https://proxy.useparagon.com/projects/${envs.PROJECT_ID}/sdk/proxy/${action.integrationName}`;
   }
   const urlParams = new URLSearchParams(
     request.params
       .filter((param) => param.in === "query")
+      .filter((param) => actionParams.params[param.name])
       .map((param) => [param.name, actionParams.params[param.name]])
   );
-  url += `?${urlParams.toString()}`;
 
   const response = await fetch(url, {
     method: request.method,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${jwt}`,
+      "X-Paragon-Proxy-Url": resolvedRequestPath.concat(`?${urlParams.toString()}`),
+      "X-Paragon-Use-Raw-Response": "true",
     },
     body:
       request.method.toLowerCase() === OpenAPIV3.HttpMethods.GET

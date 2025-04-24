@@ -46,7 +46,7 @@ export async function loadCustomOpenApiTools(
       return file.split(".")[0] === integration.type;
     });
   };
-  
+
   const customOpenApiTools = await Promise.all(
     files
       .filter((file) => findMatchingIntegration(file))
@@ -57,7 +57,7 @@ export async function loadCustomOpenApiTools(
         );
         const integrationName = file.substring(0, file.lastIndexOf("."));
         const matchingIntegration = findMatchingIntegration(file);
-        
+
         return {
           integrationName,
           integrationId: matchingIntegration!.id,
@@ -97,7 +97,9 @@ export async function loadCustomOpenApiTools(
                   fromParameter(param as any),
                 ])
               ),
-              required: requestParameters.map((param) => param.name),
+              required: requestParameters
+                .filter((param) => param.required || param.in === "path")
+                .map((param) => param.name),
             };
           }
           if (
@@ -120,10 +122,10 @@ export async function loadCustomOpenApiTools(
               : []),
           ];
 
-          const toolName = `${item.integrationName.toUpperCase()}_${requestName
-            .split(" ")
+          const toolName = `${item.integrationName
+            .split(".")
             .join("_")
-            .toUpperCase()}`;
+            .toUpperCase()}_${requestName.split(" ").join("_").toUpperCase()}`;
 
           openApiRequests[toolName] = {
             baseUrl: spec.servers?.[0]?.url,

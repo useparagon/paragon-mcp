@@ -139,6 +139,8 @@ process.on("SIGTERM", async () => {
     })
   );
   await server.close();
-  transports = {};
+  for (const key in transports) {
+    delete transports[key];
+  }
   process.exit(0);
 });
