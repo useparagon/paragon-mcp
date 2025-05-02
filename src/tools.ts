@@ -36,9 +36,9 @@ async function getAndProcessTools(
   const allTools = dynamicTools.concat(extraTools);
 
   return allTools.filter((tool) => {
-    let keep = false;
+    let keep = true;
     if (envs.LIMIT_TO_INTEGRATIONS && envs.LIMIT_TO_INTEGRATIONS.length > 0) {
-      keep = envs.LIMIT_TO_INTEGRATIONS.includes(tool.integrationName)
+      keep = keep && envs.LIMIT_TO_INTEGRATIONS.includes(tool.integrationName)
     }
     if (envs.LIMIT_TO_TOOLS && envs.LIMIT_TO_TOOLS.length > 0) {
       keep = keep && envs.LIMIT_TO_TOOLS.includes(tool.integrationName)

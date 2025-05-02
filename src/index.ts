@@ -128,32 +128,21 @@ async function main() {
   console.log(`Server is running on`, `http://localhost:${envs.PORT}`);
 }
 
+const handleShutdown = async () => {
+  console.log("Closing all transports...");
+  await Promise.all(
+    Object.values(transports).map(async (transport) => {
+      await transport.transport.close();
+    })
+  );
+  await server.close();
+  for (const key in transports) {
+    delete transports[key];
+  }
+  process.exit(0);
+};
+
+process.on("SIGTERM", handleShutdown);
+process.on("SIGINT", handleShutdown);
+
 main();
-
-process.on("SIGTERM", async () => {
-  console.log("Closing all transports...");
-  await Promise.all(
-    Object.values(transports).map(async (transport) => {
-      await transport.transport.close();
-    })
-  );
-  await server.close();
-  for (const key in transports) {
-    delete transports[key];
-  }
-  process.exit(0);
-});
-
-process.on("SIGINT", async () => {
-  console.log("Closing all transports...");
-  await Promise.all(
-    Object.values(transports).map(async (transport) => {
-      await transport.transport.close();
-    })
-  );
-  await server.close();
-  for (const key in transports) {
-    delete transports[key];
-  }
-  process.exit(0);
-});
