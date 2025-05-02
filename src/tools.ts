@@ -37,7 +37,6 @@ async function getAndProcessTools(
 
   return allTools.filter((tool) => {
     let keep = true;
-    console.log(tool);
     if (envs.LIMIT_TO_INTEGRATIONS && envs.LIMIT_TO_INTEGRATIONS.length > 0) {
       keep = keep && envs.LIMIT_TO_INTEGRATIONS.includes(tool.integrationName);
     }
