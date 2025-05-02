@@ -44,7 +44,6 @@ async function main() {
     }
 
     const transport = new SSEServerTransport("/messages", res);
-
     transports[transport.sessionId] = { transport, currentJwt };
 
     Logger.debug(
@@ -115,8 +114,8 @@ async function main() {
         <head>
           <script src="${envs.CONNECT_SDK_CDN_URL}"></script>
           <script id="token-info" type="application/json">${JSON.stringify(
-            tokenInfo
-          )}</script>
+      tokenInfo
+    )}</script>
           <script type="text/javascript" src="/static/js/index.js"></script>
         </head>
         <body>
@@ -132,6 +131,20 @@ async function main() {
 main();
 
 process.on("SIGTERM", async () => {
+  console.log("Closing all transports...");
+  await Promise.all(
+    Object.values(transports).map(async (transport) => {
+      await transport.transport.close();
+    })
+  );
+  await server.close();
+  for (const key in transports) {
+    delete transports[key];
+  }
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
   console.log("Closing all transports...");
   await Promise.all(
     Object.values(transports).map(async (transport) => {
