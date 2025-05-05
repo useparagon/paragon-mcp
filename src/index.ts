@@ -44,7 +44,6 @@ async function main() {
     }
 
     const transport = new SSEServerTransport("/messages", res);
-
     transports[transport.sessionId] = { transport, currentJwt };
 
     Logger.debug(
@@ -115,8 +114,8 @@ async function main() {
         <head>
           <script src="${envs.CONNECT_SDK_CDN_URL}"></script>
           <script id="token-info" type="application/json">${JSON.stringify(
-            tokenInfo
-          )}</script>
+      tokenInfo
+    )}</script>
           <script type="text/javascript" src="/static/js/index.js"></script>
         </head>
         <body>
@@ -129,9 +128,7 @@ async function main() {
   console.log(`Server is running on`, `http://localhost:${envs.PORT}`);
 }
 
-main();
-
-process.on("SIGTERM", async () => {
+const handleShutdown = async () => {
   console.log("Closing all transports...");
   await Promise.all(
     Object.values(transports).map(async (transport) => {
@@ -143,4 +140,9 @@ process.on("SIGTERM", async () => {
     delete transports[key];
   }
   process.exit(0);
-});
+};
+
+process.on("SIGTERM", handleShutdown);
+process.on("SIGINT", handleShutdown);
+
+main();
