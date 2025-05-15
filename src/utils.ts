@@ -203,7 +203,7 @@ export function decodeJwt(token: string) {
   return jwt.decode(token, { complete: true });
 }
 
-export async function getTools(jwt: string): Promise<Array<any>> {
+export async function getTools(jwt: string): Promise<Array<ExtendedTool>> {
   const tools: Array<ExtendedTool> = [];
   const actionPayload = await getActions(jwt);
   const actions = actionPayload.actions;
@@ -418,9 +418,7 @@ export async function performProxyApiRequest(
     headers: {
       Authorization: `Bearer ${jwt}`,
       "Content-Type": "application/json",
-      ...(isCustomIntegration
-        ? { "X-Paragon-Proxy-Url": `${args.url}${queryStr}` }
-        : {}),
+      "X-Paragon-Proxy-Url": `${args.url}${queryStr}`,
       ...(args.integration === "slack"
         ? { "X-Paragon-Use-Slack-Token-Type": "user" }
         : {}),
