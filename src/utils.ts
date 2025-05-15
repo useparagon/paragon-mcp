@@ -36,6 +36,16 @@ export const envs = z
           .map((s) => s.trim())
           .filter(Boolean)
       ),
+    LIMIT_TO_TOOLS: z
+      .string()
+      .default("")
+      .transform((val) =>
+        val
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      ),
+
   })
   .parse(process.env);
 
@@ -78,18 +88,16 @@ export async function performOpenApiAction(
     throw new Error(`No request found for action ${action.name}`);
   }
 
-  const resolvedRequestPath = `${
-    request.baseUrl ? request.baseUrl : ""
-  }${request.path.replace(
-    /\{(\w+)\}/g,
-    (_match: string, p1: string) => actionParams.params[p1]
-  )}`;
+  const resolvedRequestPath = `${request.baseUrl ? request.baseUrl : ""
+    }${request.path.replace(
+      /\{(\w+)\}/g,
+      (_match: string, p1: string) => actionParams.params[p1]
+    )}`;
 
   let url;
   if (action.integrationName.startsWith("custom.")) {
-    url = `https://proxy.useparagon.com/projects/${
-      envs.PROJECT_ID
-    }/sdk/proxy/custom/${action.integrationId!}`;
+    url = `https://proxy.useparagon.com/projects/${envs.PROJECT_ID
+      }/sdk/proxy/custom/${action.integrationId!}`;
   } else {
     url = `https://proxy.useparagon.com/projects/${envs.PROJECT_ID}/sdk/proxy/${action.integrationName}`;
   }
@@ -374,11 +382,11 @@ export async function performProxyApiRequest(
   const isCustomIntegration = args.integration.includes("custom.");
   const queryStr = args.queryParams
     ? `?${new URLSearchParams(
-        Object.entries(args.queryParams).reduce((acc, [key, value]) => {
-          acc[key] = String(value);
-          return acc;
-        }, {} as Record<string, string>)
-      ).toString()}`
+      Object.entries(args.queryParams).reduce((acc, [key, value]) => {
+        acc[key] = String(value);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString()}`
     : "";
 
   let path;

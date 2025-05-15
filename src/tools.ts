@@ -34,14 +34,17 @@ async function getAndProcessTools(
 ): Promise<Array<ExtendedTool>> {
   const dynamicTools = await getTools(jwt);
   const allTools = dynamicTools.concat(extraTools);
-  
-  if (envs.LIMIT_TO_INTEGRATIONS && envs.LIMIT_TO_INTEGRATIONS.length > 0) {
-    return allTools.filter((tool) =>
-      envs.LIMIT_TO_INTEGRATIONS.includes(tool.integrationName)
-    );
-  }
-  
-  return allTools;
+
+  return allTools.filter((tool) => {
+    let keep = true;
+    if (envs.LIMIT_TO_INTEGRATIONS && envs.LIMIT_TO_INTEGRATIONS.length > 0) {
+      keep = keep && envs.LIMIT_TO_INTEGRATIONS.includes(tool.integrationName);
+    }
+    if (envs.LIMIT_TO_TOOLS && envs.LIMIT_TO_TOOLS.length > 0) {
+      keep = keep && envs.LIMIT_TO_TOOLS.includes(tool.name);
+    }
+    return keep;
+  });
 }
 
 export function registerTools({
@@ -70,7 +73,7 @@ export function registerTools({
       if (sessionData.cachedTools) {
         return { tools: sessionData.cachedTools };
       }
-      
+
       const filteredTools = await getAndProcessTools(sessionData.currentJwt, extraTools);
       transports[sessionId].cachedTools = filteredTools;
       return { tools: filteredTools };
