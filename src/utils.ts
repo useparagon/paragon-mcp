@@ -20,10 +20,12 @@ export const envs = z
     SIGNING_KEY: z.string().optional(),
     SIGNING_KEY_PATH: z.string().optional(),
     PORT: z.string().default("3001"),
+    ZEUS_BASE_URL: z.string().default("https://zeus.useparagon.com"),
+    PROXY_BASE_URL: z.string().default("https://proxy.useparagon.com"),
     CONNECT_SDK_CDN_URL: z
       .string()
       .default("https://cdn.useparagon.com/latest/sdk/index.js"),
-    ACTION_KIT_BASE_URL: z.string().default("https://actionkit.useparagon.com"),
+    ACTIONKIT_BASE_URL: z.string().default("https://actionkit.useparagon.com"),
     NODE_ENV: z.enum(["development", "production"]).default("development"),
     ENABLE_CUSTOM_OPENAPI_ACTIONS: z.boolean({ coerce: true }).default(false),
     ENABLE_PROXY_API_TOOL: z.boolean({ coerce: true }).default(false),
@@ -56,7 +58,7 @@ export const MCP_SERVER_DOMAIN =
 
 export async function getActions(jwt: string): Promise<any | null> {
   try {
-    const url = `${envs.ACTION_KIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions?limit_to_available=false`;
+    const url = `${envs.ACTIONKIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions?limit_to_available=false`;
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -96,10 +98,10 @@ export async function performOpenApiAction(
 
   let url;
   if (action.integrationName.startsWith("custom.")) {
-    url = `https://proxy.useparagon.com/projects/${envs.PROJECT_ID
+    url = `${envs.PROXY_BASE_URL}/projects/${envs.PROJECT_ID
       }/sdk/proxy/custom/${action.integrationId!}`;
   } else {
-    url = `https://proxy.useparagon.com/projects/${envs.PROJECT_ID}/sdk/proxy/${action.integrationName}`;
+    url = `${envs.PROXY_BASE_URL}/projects/${envs.PROJECT_ID}/sdk/proxy/${action.integrationName}`;
   }
   const urlParams = new URLSearchParams(
     request.params
@@ -132,7 +134,7 @@ export async function performAction(
 ): Promise<any | null> {
   console.log(`DEBUG:`, "Running action", actionName, actionParams);
   try {
-    const url = `${envs.ACTION_KIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions`;
+    const url = `${envs.ACTIONKIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions`;
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -273,7 +275,7 @@ export async function generateSetupLink({
 export async function getAllIntegrations(jwt: string): Promise<any | null> {
   try {
     const response = await fetch(
-      `https://zeus.useparagon.com/projects/${envs.PROJECT_ID}/sdk/integrations`,
+      `${envs.ZEUS_BASE_URL}/projects/${envs.PROJECT_ID}/sdk/integrations`,
       {
         method: "GET",
         headers: {
@@ -407,7 +409,7 @@ export async function performProxyApiRequest(
     path = args.integration;
   }
 
-  const url = `https://proxy.useparagon.com/projects/${envs.PROJECT_ID}/sdk/proxy/${path}`;
+  const url = `${envs.PROXY_BASE_URL}/projects/${envs.PROJECT_ID}/sdk/proxy/${path}`;
 
   const response = await fetch(url, {
     method: args.httpMethod,

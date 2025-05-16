@@ -63,7 +63,9 @@ Set up the environment variables as described below:
   - `PORT`: Server port (default: 3001)
   - `MCP_SERVER_URL`: The URL of your hosted MCP Server. This will be used to generate Setup Links when your users are prompted to install integrations. (default: `http://localhost:3001`)
   - `CONNECT_SDK_CDN_URL`: Paragon Connect SDK CDN URL (default: https://cdn.useparagon.com/latest/sdk/index.js)
-  - `ACTION_KIT_BASE_URL`: Paragon ActionKit base URL (default: https://actionkit.useparagon.com)
+  - `ACTIONKIT_BASE_URL`: Paragon ActionKit base URL (default: https://actionkit.useparagon.com)
+  - `ZEUS_BASE_URL`: Paragon API base URL (default: https://zeus.useparagon.com)
+  - `PROXY_BASE_URL`: Paragon Proxy API base URL (default: https://proxy.useparagon.com)
   - `NODE_ENV`: Node environment (default: `development`)
     <sub>**Note**: When `NODE_ENV` is set to `development`, the `/sse` parameter accepts any user ID in the `?user=` query parameter to automatically authorize as a specific user while testing locally.</sub>
 

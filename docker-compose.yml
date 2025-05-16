@@ -1,0 +1,22 @@
+services:
+  paragon-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 3001:3001
+    environment:
+      - PROJECT_ID=${PROJECT_ID}
+      - SIGNING_KEY=${SIGNING_KEY}
+      - SIGNING_KEY_PATH=${SIGNING_KEY_PATH}
+      - PORT=3001
+      - MCP_SERVER_URL=${MCP_SERVER_URL}
+      - CONNECT_SDK_CDN_URL=${CONNECT_SDK_CDN_URL}
+      - ACTIONKIT_BASE_URL=${ACTIONKIT_BASE_URL}
+      - ZEUS_BASE_URL=${ZEUS_BASE_URL}
+      - PROXY_BASE_URL=${PROXY_BASE_URL}
+      - NODE_ENV=production
+      - ENABLE_CUSTOM_OPENAPI_ACTIONS=${ENABLE_CUSTOM_OPENAPI_ACTIONS}
+      - ENABLE_PROXY_API_TOOL=${ENABLE_PROXY_API_TOOL}
+      - LIMIT_TO_INTEGRATIONS=${LIMIT_TO_INTEGRATIONS}
+      - LIMIT_TO_TOOLS=${LIMIT_TO_TOOLS}
