@@ -226,33 +226,6 @@ export async function getTools(jwt: string): Promise<Array<ExtendedTool>> {
   return tools;
 }
 
-export const zodParser = ({
-  property,
-  isRequired,
-}: {
-  property: any;
-  isRequired: boolean;
-}) => {
-  let zodType;
-
-  switch (property.type) {
-    case "string":
-      zodType = z.string({ description: property.description });
-    case "number":
-      zodType = z.number({ description: property.description });
-    case "boolean":
-      zodType = z.boolean({ description: property.description });
-    default:
-      zodType = z.string({ description: property.description });
-  }
-
-  if (!isRequired) {
-    return zodType.optional();
-  }
-
-  return zodType;
-};
-
 export async function generateSetupLink({
   integrationName,
   projectId,
