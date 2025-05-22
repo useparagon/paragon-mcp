@@ -33,7 +33,9 @@ async function getAndProcessTools(
   extraTools: Array<ExtendedTool> = []
 ): Promise<Array<ExtendedTool>> {
   const dynamicTools = await getTools(jwt);
-  const allTools = dynamicTools.concat(extraTools);
+  const allTools = [...dynamicTools, ...extraTools].filter((tool, index, self) => 
+    index === self.findIndex((t) => t.name === tool.name)
+  );
 
   return allTools.filter((tool) => {
     let keep = true;
