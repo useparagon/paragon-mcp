@@ -16,6 +16,11 @@ const server = new Server({
 });
 let extraTools: Array<ExtendedTool> = [];
 let integrations: Array<Integration> = await getAllIntegrations(signJwt({ userId: envs.PROJECT_ID }));
+
+if(envs.LIMIT_TO_INTEGRATIONS) {
+  integrations = integrations.filter((integration) => envs.LIMIT_TO_INTEGRATIONS.includes(integration.id));
+}
+
 if (envs.ENABLE_CUSTOM_OPENAPI_ACTIONS) {
   extraTools = await loadCustomOpenApiTools(integrations);
 }
