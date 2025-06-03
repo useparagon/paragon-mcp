@@ -57,6 +57,8 @@ export const MCP_SERVER_DOMAIN =
     : envs.MCP_SERVER_URL;
 
 export async function getActions(jwt: string): Promise<any | null> {
+  const start = Date.now();
+  console.log(`DEBUG:`, "Getting actions");
   try {
     const url = `${envs.ACTIONKIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions?limit_to_available=false`;
     const response = await fetch(url, {
@@ -72,9 +74,12 @@ export async function getActions(jwt: string): Promise<any | null> {
         `HTTP error; status: ${response.status}; message: ${message}`
       );
     }
-
+    const end = Date.now();
+    console.log(`DEBUG:`, "ActionKit GET request completed in", end - start, "ms"); 
     return await response.json();
   } catch (error) {
+    const end = Date.now();
+    console.log(`DEBUG:`, "ActionKit GET request failed in", end - start, "ms");
     console.error("Could not make ActionKit POST request: " + error);
     return null;
   }
@@ -133,6 +138,7 @@ export async function performAction(
   jwt: string
 ): Promise<any | null> {
   console.log(`DEBUG:`, "Running action", actionName, actionParams);
+  const start = Date.now();
   try {
     const url = `${envs.ACTIONKIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions`;
     const response = await fetch(url, {
@@ -144,9 +150,12 @@ export async function performAction(
       body: JSON.stringify({ action: actionName, parameters: actionParams }),
     });
     await handleResponseErrors(response);
-
+    const end = Date.now();
+    console.log(`DEBUG:`, "Action completed in", end - start, "ms");
     return await response.json();
   } catch (error) {
+    const end = Date.now();
+    console.log(`DEBUG:`, "Action failed in", end - start, "ms");
     throw error;
   }
 }
