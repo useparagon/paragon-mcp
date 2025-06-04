@@ -38,6 +38,8 @@ async function main() {
   app.use("/static", express.static("static"));
 
   app.get("/sse", async (req, res) => {
+    const start = Date.now();
+    console.log(`DEBUG:`, "SSE request received", Date.now() - start, "ms");
     let currentJwt = req.headers.authorization;
 
     if (currentJwt && currentJwt.startsWith("Bearer ")) {
@@ -49,7 +51,11 @@ async function main() {
       return res.status(401).send("Unauthorized");
     }
 
+    console.log(`DEBUG:`, "Current User:", req.query.user, Date.now() - start, "ms");
+
     const transport = new SSEServerTransport("/messages", res);
+
+    console.log(`DEBUG:`, "Transport created", Date.now() - start, "ms");
     transports[transport.sessionId] = { transport, currentJwt };
 
     Logger.debug(
@@ -65,7 +71,9 @@ async function main() {
       delete transports[transport.sessionId];
     });
 
+    console.log(`DEBUG:`, "Connecting to server", Date.now() - start, "ms");
     await server.connect(transport);
+    console.log(`DEBUG:`, "Connected to server", Date.now() - start, "ms");
   });
 
   app.post("/messages", async (req, res) => {
