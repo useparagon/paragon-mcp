@@ -10,10 +10,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { loadCustomOpenApiTools } from "./openapi";
 
 let transports: Record<string, TransportPayload> = {};
-const server = new Server({
-  name: "paragon-mcp",
-  version: "1.0.0",
-});
+
 let extraTools: Array<ExtendedTool> = [];
 let integrations: Array<Integration> = await getAllIntegrations(signJwt({ userId: envs.PROJECT_ID }));
 
@@ -28,7 +25,7 @@ if (envs.ENABLE_CUSTOM_OPENAPI_ACTIONS) {
 if (envs.ENABLE_PROXY_API_TOOL) {
   extraTools = extraTools.concat(createProxyApiTool(integrations));
 }
-registerTools({ server, extraTools, transports });
+
 
 async function main() {
   createAccessTokenStore();
@@ -39,7 +36,6 @@ async function main() {
 
   app.get("/sse", async (req, res) => {
     const start = Date.now();
-    console.log(`DEBUG:`, "SSE request received", Date.now() - start, "ms");
     let currentJwt = req.headers.authorization;
 
     if (currentJwt && currentJwt.startsWith("Bearer ")) {
@@ -51,12 +47,15 @@ async function main() {
       return res.status(401).send("Unauthorized");
     }
 
-    console.log(`DEBUG:`, "Current User:", req.query.user, Date.now() - start, "ms");
-
+    const server = new Server({
+      name: "paragon-mcp",
+      version: "1.0.0",
+    });
     const transport = new SSEServerTransport("/messages", res);
 
-    console.log(`DEBUG:`, "Transport created", Date.now() - start, "ms");
-    transports[transport.sessionId] = { transport, currentJwt };
+    registerTools({ server, extraTools, transports });
+
+    transports[transport.sessionId] = { transport, currentJwt, server };
 
     Logger.debug(
       "Connected clients:",
@@ -68,17 +67,17 @@ async function main() {
 
     res.on("close", () => {
       Logger.debug("Client disconnected: ", transport.sessionId);
+      transports[transport.sessionId].server?.close();
       delete transports[transport.sessionId];
     });
 
-    console.log(`DEBUG:`, "Connecting to server", Date.now() - start, "ms");
     await server.connect(transport);
-    console.log(`DEBUG:`, "Connected to server", Date.now() - start, "ms");
   });
 
   app.post("/messages", async (req, res) => {
     const sessionId = req.query.sessionId as string;
     const transportPayload = transports[sessionId];
+
 
     if (sessionId && transportPayload) {
       try {
@@ -149,8 +148,8 @@ const handleShutdown = async () => {
       await transport.transport.close();
     })
   );
-  await server.close();
   for (const key in transports) {
+    transports[key].server?.close();
     delete transports[key];
   }
   process.exit(0);

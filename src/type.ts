@@ -1,3 +1,4 @@
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
@@ -33,6 +34,7 @@ export type TransportPayload = {
   transport: SSEServerTransport;
   currentJwt: string;
   cachedTools?: ExtendedTool[];
+  server: Server;
 };
 
 interface BaseIntegration {
