@@ -1,0 +1,148 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+      "title": "Google Calendar API - List Events",
+      "version": "1.0.0",
+      "description": "Retrieve events from the primary Google Calendar within a time range."
+    },
+    "servers": [
+      {
+        "url": "https://www.googleapis.com/calendar/v3"
+      }
+    ],
+    "paths": {
+      "/calendars/primary/events": {
+        "get": {
+          "summary": "List Events in Primary Calendar",
+          "description": "Retrieve a list of events from the user's primary calendar using optional time range and pagination.",
+          "parameters": [
+            {
+              "name": "timeMin",
+              "in": "query",
+              "required": true,
+              "description": "The start time to filter events (RFC3339 timestamp).",
+              "schema": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2025-06-01T00:00:00Z"
+              }
+            },
+            {
+              "name": "timeMax",
+              "in": "query",
+              "required": true,
+              "description": "The end time to filter events (RFC3339 timestamp).",
+              "schema": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2025-06-30T23:59:59Z"
+              }
+            },
+            {
+              "name": "singleEvents",
+              "in": "query",
+              "required": false,
+              "description": "Whether to expand recurring events into instances.",
+              "schema": {
+                "type": "boolean",
+                "default": true
+              }
+            },
+            {
+              "name": "pageToken",
+              "in": "query",
+              "required": false,
+              "description": "Token for fetching the next page of results.",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "A list of events.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "example": "calendar#events"
+                      },
+                      "etag": {
+                        "type": "string"
+                      },
+                      "summary": {
+                        "type": "string"
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/Event"
+                        }
+                      },
+                      "nextPageToken": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Unauthorized - Authentication required."
+            },
+            "403": {
+              "description": "Forbidden - Insufficient permissions."
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "Event": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            },
+            "start": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "dateTime": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            },
+            "end": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "dateTime": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
