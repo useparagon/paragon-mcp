@@ -1,0 +1,119 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Google Ads API Toolset",
+    "version": "1.0.0",
+    "description": "Toolset for interacting with Google Ads API, including listing accounts, executing GAQL queries, and fetching campaign or ad performance."
+  },
+  "paths": {
+    "/v19/customers:listAccessibleCustomers": {
+      "get": {
+        "summary": "List Accessible Google Ads Accounts",
+        "operationId": "listAccounts",
+        "responses": {
+          "200": {
+            "description": "List of accessible account resource names",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "example": {
+                    "value": {
+                      "resourceNames": [
+                        "customers/1234567890",
+                        "customers/0987654321"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "OAuth2": [] }]
+      }
+    },
+    "/19/customers/{customer_id}/googleAds:search": {
+      "post": {
+        "summary": "Execute GAQL Query",
+        "operationId": "executeGaqlQuery",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{10}$"
+            },
+            "description": "Google Ads customer ID (10 digits, no dashes)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "GAQL query string"
+                  }
+                },
+                "required": ["query"]
+              },
+              "examples": {
+                "execute_gaql_query": {
+                  "summary": "Execute GAQL query example",
+                  "value": {
+                    "query": "SELECT campaign.id, campaign.name FROM campaign LIMIT 50"
+                  }
+                },
+                "get_campaign_performance": {
+                  "summary": "Campaign performance example",
+                  "value": {
+                    "query": "SELECT campaign.id, campaign.name, campaign.status, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions, metrics.average_cpc\nFROM campaign\nWHERE segments.date DURING LAST_30_DAYS\nORDER BY metrics.cost_micros DESC\nLIMIT 50"
+                  }
+                },
+                "get_ad_performance": {
+                  "summary": "Ad performance example",
+                  "value": {
+                    "query": "SELECT ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group_ad.status, campaign.name, ad_group.name, metrics.impressions, metrics.clicks, metrics.cost_micros, metrics.conversions\nFROM ad_group_ad\nWHERE segments.date DURING LAST_30_DAYS\nORDER BY metrics.impressions DESC\nLIMIT 50"
+                  }
+                },
+                "run_gaql": {
+                  "summary": "Custom GAQL query example",
+                  "value": {
+                    "query": "SELECT campaign.name, metrics.clicks, metrics.impressions, metrics.cost_micros\nFROM campaign\nWHERE segments.date DURING LAST_7_DAYS"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "GAQL query results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [{ "OAuth2": [] }]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "OAuth2": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "AccessToken"
+      }
+    }
+  }
+}
