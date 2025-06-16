@@ -32,7 +32,7 @@
         "security": [{ "OAuth2": [] }]
       }
     },
-    "/19/customers/{customer_id}/googleAds:search": {
+    "/v19/customers/{customer_id}/googleAds:search": {
       "post": {
         "summary": "Execute GAQL Query",
         "operationId": "executeGaqlQuery",
