@@ -21,6 +21,8 @@ import {
   envs,
 } from "./utils";
 
+import allowedTools from "./allowedTools";
+
 const ajv = new Ajv({ allErrors: true, strict: false });
 
 /**
@@ -30,12 +32,17 @@ const ajv = new Ajv({ allErrors: true, strict: false });
  */
 async function getAndProcessTools(
   jwt: string,
-  extraTools: Array<ExtendedTool> = []
+  extraTools: Array<ExtendedTool> = [],
+  selectedIntegrations: string[] = []
 ): Promise<Array<ExtendedTool>> {
   const dynamicTools = await getTools(jwt);
   const allTools = [...dynamicTools, ...extraTools].filter((tool, index, self) => 
     index === self.findIndex((t) => t.name === tool.name)
   );
+
+  const allowedToolsForIntegrations = selectedIntegrations
+    .map((integration) => allowedTools[integration as keyof typeof allowedTools])
+    .flat();
 
   return allTools.filter((tool) => {
     let keep = true;
@@ -45,6 +52,9 @@ async function getAndProcessTools(
     if (envs.LIMIT_TO_TOOLS && envs.LIMIT_TO_TOOLS.length > 0) {
       keep = keep && envs.LIMIT_TO_TOOLS.includes(tool.name);
     }
+    if (selectedIntegrations.length > 0) {
+      keep = keep && allowedToolsForIntegrations.includes(tool.name);
+    }
     return keep;
   });
 }
@@ -53,10 +63,12 @@ export function registerTools({
   server,
   extraTools = [],
   transports,
+  selectedIntegrations,
 }: {
   server: Server;
   extraTools?: Array<ExtendedTool>;
   transports: Record<string, TransportPayload>;
+  selectedIntegrations: string[];
 }) {
   server.registerCapabilities({
     tools: {
@@ -76,7 +88,7 @@ export function registerTools({
         return { tools: sessionData.cachedTools };
       }
 
-      const filteredTools = await getAndProcessTools(sessionData.currentJwt, extraTools);
+      const filteredTools = await getAndProcessTools(sessionData.currentJwt, extraTools, selectedIntegrations);
       transports[sessionId].cachedTools = filteredTools;
       return { tools: filteredTools };
     }
