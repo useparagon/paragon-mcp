@@ -40,20 +40,25 @@ async function getAndProcessTools(
     index === self.findIndex((t) => t.name === tool.name)
   );
 
-  const allowedToolsForIntegrations = selectedIntegrations
-    .map((integration) => allowedTools[integration as keyof typeof allowedTools])
-    .flat();
+  const instanceIntegrations = envs.LIMIT_TO_INTEGRATIONS && envs.LIMIT_TO_INTEGRATIONS.length > 0 ? envs.LIMIT_TO_INTEGRATIONS : [];
+
+  let availableIntegrations = [];
+  if(selectedIntegrations.length > 0) {
+    availableIntegrations = selectedIntegrations.filter(z => instanceIntegrations.includes(z));
+  } else {
+    availableIntegrations = instanceIntegrations;
+  }
+
 
   return allTools.filter((tool) => {
     let keep = true;
-    if (envs.LIMIT_TO_INTEGRATIONS && envs.LIMIT_TO_INTEGRATIONS.length > 0) {
-      keep = keep && envs.LIMIT_TO_INTEGRATIONS.includes(tool.integrationName);
-    }
     if (envs.LIMIT_TO_TOOLS && envs.LIMIT_TO_TOOLS.length > 0) {
       keep = keep && envs.LIMIT_TO_TOOLS.includes(tool.name);
     }
-    if (selectedIntegrations.length > 0) {
-      keep = keep && allowedToolsForIntegrations.includes(tool.name);
+    if (instanceIntegrations.length > 0) {
+      keep = keep 
+        && instanceIntegrations.includes(tool.integrationName) 
+        && allowedTools[tool.integrationName as keyof typeof allowedTools].includes(tool.name);
     }
     return keep;
   });
