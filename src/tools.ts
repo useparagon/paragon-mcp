@@ -43,7 +43,7 @@ async function getAndProcessTools(
   const instanceIntegrations = envs.LIMIT_TO_INTEGRATIONS && envs.LIMIT_TO_INTEGRATIONS.length > 0 ? envs.LIMIT_TO_INTEGRATIONS : [];
 
   let availableIntegrations = [];
-  if(selectedIntegrations.length > 0) {
+  if(selectedIntegrations.length > 1) {
     availableIntegrations = selectedIntegrations.filter(z => instanceIntegrations.includes(z));
   } else {
     availableIntegrations = instanceIntegrations;
