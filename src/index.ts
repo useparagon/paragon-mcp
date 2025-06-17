@@ -35,7 +35,6 @@ async function main() {
   app.use("/static", express.static("static"));
 
   app.get("/sse", async (req, res) => {
-    const start = Date.now();
     let currentJwt = req.headers.authorization;
 
     if (currentJwt && currentJwt.startsWith("Bearer ")) {
@@ -47,13 +46,16 @@ async function main() {
       return res.status(401).send("Unauthorized");
     }
 
+    const selectedIntegrations = ((req.query.integrations as string) || "").split(",").map((integration) => integration.trim());
+    selectedIntegrations.push("general");
+    
     const server = new Server({
       name: "paragon-mcp",
       version: "1.0.0",
     });
     const transport = new SSEServerTransport("/messages", res);
 
-    registerTools({ server, extraTools, transports });
+    registerTools({ server, extraTools, transports, selectedIntegrations });
 
     transports[transport.sessionId] = { transport, currentJwt, server };
 

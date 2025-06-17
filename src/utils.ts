@@ -59,7 +59,7 @@ export const MCP_SERVER_DOMAIN =
 export async function getActions(jwt: string): Promise<any | null> {
   const start = Date.now();
   try {
-    const url = `${envs.ACTIONKIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions?limit_to_available=false`;
+    const url = `${envs.ACTIONKIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions?limit_to_available=true`;
     const response = await fetch(url, {
       method: "GET",
       headers: {
