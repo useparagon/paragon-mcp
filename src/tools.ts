@@ -55,9 +55,9 @@ async function getAndProcessTools(
     if (envs.LIMIT_TO_TOOLS && envs.LIMIT_TO_TOOLS.length > 0) {
       keep = keep && envs.LIMIT_TO_TOOLS.includes(tool.name);
     }
-    if (instanceIntegrations.length > 0) {
+    if (availableIntegrations.length > 0) {
       keep = keep 
-        && instanceIntegrations.includes(tool.integrationName) 
+        && availableIntegrations.includes(tool.integrationName) 
         && allowedTools[tool.integrationName as keyof typeof allowedTools].includes(tool.name);
     }
     return keep;
