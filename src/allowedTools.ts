@@ -55,5 +55,9 @@ export default  {
         "SLACK_SEARCH_MESSAGES",
         "SLACK_GET_USERS_BY_NAME",
         "SLACK_SEND_MESSAGE"
+    ],
+
+    facebookAds: [
+        "*"
     ]
 }

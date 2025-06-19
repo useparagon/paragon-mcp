@@ -56,9 +56,11 @@ async function getAndProcessTools(
       keep = keep && envs.LIMIT_TO_TOOLS.includes(tool.name);
     }
     if (selectedIntegrations.length > 1) {
+      const _allowedTools = allowedTools[tool.integrationName as keyof typeof allowedTools] || [];
+
       keep = keep 
         && availableIntegrations.includes(tool.integrationName) 
-        && allowedTools[tool.integrationName as keyof typeof allowedTools].includes(tool.name);
+        && _allowedTools.includes(tool.name) || _allowedTools.includes("*");
     }
     return keep;
   });
