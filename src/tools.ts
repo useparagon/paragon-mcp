@@ -60,7 +60,7 @@ async function getAndProcessTools(
 
       keep = keep 
         && availableIntegrations.includes(tool.integrationName) 
-        && _allowedTools.includes(tool.name) || _allowedTools.includes("*");
+        && (_allowedTools.includes(tool.name) || _allowedTools.includes("*"));
     }
     return keep;
   });
