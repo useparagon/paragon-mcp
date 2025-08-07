@@ -35,7 +35,7 @@ export async function loadCustomOpenApiTools(
 
   const findMatchingIntegration = (file: string): Integration | undefined => {
     return integrations.find((integration) => {
-      if (integration.type === "custom") {
+      if (integration.type.split(".")[0] === "custom") {
         return file.includes(
           `custom.${integration
             .customIntegration!.name.split(" ")
@@ -125,7 +125,7 @@ export async function loadCustomOpenApiTools(
           const toolName = `${item.integrationName
             .split(".")
             .join("_")
-            .toUpperCase()}_${requestName.split(" ").join("_").toUpperCase()}`;
+            .toUpperCase()}_${requestName.split(" ").join("_").toUpperCase().trimEnd()}`;
 
           openApiRequests[toolName] = {
             baseUrl: spec.servers?.[0]?.url,
