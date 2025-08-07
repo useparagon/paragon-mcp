@@ -35,7 +35,7 @@ export async function loadCustomOpenApiTools(
 
   const findMatchingIntegration = (file: string): Integration | undefined => {
     return integrations.find((integration) => {
-      if (integration.type === "custom") {
+      if (integration.customIntegrationId !== null) {
         return file.includes(
           `custom.${integration
             .customIntegration!.name.split(" ")
@@ -84,7 +84,7 @@ export async function loadCustomOpenApiTools(
           const requestParameters = request.parameters as
             | OpenAPIV3_1.ParameterObject[]
             | undefined;
-          const requestName = request.summary ?? `${method} ${path}`;
+          const requestName = request.summary?.trim() ?? `${method} ${path}`;
           let paramsSchema;
           let bodySchema;
 

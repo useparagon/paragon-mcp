@@ -96,13 +96,7 @@ export async function performOpenApiAction(
       (_match: string, p1: string) => actionParams.params[p1]
     )}`;
 
-  let url;
-  if (action.integrationName.startsWith("custom.")) {
-    url = `${envs.PROXY_BASE_URL}/projects/${envs.PROJECT_ID
-      }/sdk/proxy/custom/${action.integrationId!}`;
-  } else {
-    url = `${envs.PROXY_BASE_URL}/projects/${envs.PROJECT_ID}/sdk/proxy/${action.integrationName}`;
-  }
+  let url = `${envs.PROXY_BASE_URL}/projects/${envs.PROJECT_ID}/sdk/proxy/${action.integrationName}`;
   const urlParams = new URLSearchParams(
     request.params
       .filter((param) => param.in === "query")
@@ -124,7 +118,7 @@ export async function performOpenApiAction(
         : JSON.stringify(actionParams),
   });
   await handleResponseErrors(response);
-  return await response.json();
+  return await response.text();
 }
 
 export async function performAction(
@@ -295,11 +289,7 @@ export async function handleResponseErrors(response: Response): Promise<void> {
 }
 
 export function createProxyApiTool(integrations: Integration[]): ExtendedTool {
-  const integrationNames = integrations.map((i) =>
-    i.type === "custom" && i.customIntegration
-      ? `custom.${i.customIntegration.name}`
-      : i.type
-  );
+  const integrationNames = integrations.map((i) => i.type);
 
   return {
     name: "CALL_API_REQUEST",
@@ -354,7 +344,6 @@ export async function performProxyApiRequest(
   args: ProxyApiRequestToolArgs,
   jwt: string
 ): Promise<any> {
-  const isCustomIntegration = args.integration.includes("custom.");
   const queryStr = args.queryParams
     ? `?${new URLSearchParams(
       Object.entries(args.queryParams).reduce((acc, [key, value]) => {
@@ -364,25 +353,7 @@ export async function performProxyApiRequest(
     ).toString()}`
     : "";
 
-  let path;
-  if (isCustomIntegration) {
-    const customName = args.integration.split(".")[1].toLowerCase();
-    const integration = (await getAllIntegrations(jwt))?.find(
-      (i: Integration) =>
-        i.type === "custom" &&
-        i.customIntegration?.name.toLowerCase() === customName
-    );
-
-    if (!integration) {
-      throw new Error(`Custom integration ${customName} not found`);
-    }
-
-    path = `custom/${integration.id}`;
-  } else {
-    path = args.integration;
-  }
-
-  const url = `${envs.PROXY_BASE_URL}/projects/${envs.PROJECT_ID}/sdk/proxy/${path}`;
+  const url = `${envs.PROXY_BASE_URL}/projects/${envs.PROJECT_ID}/sdk/proxy/${args.integration}`;
 
   const response = await fetch(url, {
     method: args.httpMethod,
