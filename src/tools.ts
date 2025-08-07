@@ -20,6 +20,7 @@ import {
   performProxyApiRequest,
   envs,
 } from "./utils";
+import { getCustomTools, performCustomAction } from "./custom-tools";
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 
@@ -126,6 +127,12 @@ export function registerTools({
         } else if (tool.name === "CALL_API_REQUEST") {
           response = await performProxyApiRequest(
             args as ProxyApiRequestToolArgs,
+            transports[sessionId].currentJwt
+          );
+        } else if (tool.name.split("_")[0] === "CUSTOM") {
+          response = await performCustomAction(
+            tool.name,
+            args,
             transports[sessionId].currentJwt
           );
         } else {

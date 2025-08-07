@@ -29,6 +29,7 @@ export const envs = z
     NODE_ENV: z.enum(["development", "production"]).default("development"),
     ENABLE_CUSTOM_OPENAPI_ACTIONS: z.boolean({ coerce: true }).default(false),
     ENABLE_PROXY_API_TOOL: z.boolean({ coerce: true }).default(false),
+    ENABLE_CUSTOM_TOOL: z.boolean({ coerce: true }).default(false),
     LIMIT_TO_INTEGRATIONS: z
       .string()
       .default("")
@@ -219,6 +220,7 @@ export async function getTools(jwt: string): Promise<Array<ExtendedTool>> {
   }
   return tools;
 }
+
 
 export async function generateSetupLink({
   integrationName,
