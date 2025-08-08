@@ -48,7 +48,6 @@ export const envs = z
           .map((s) => s.trim())
           .filter(Boolean)
       ),
-
   })
   .parse(process.env);
 
@@ -91,11 +90,12 @@ export async function performOpenApiAction(
     throw new Error(`No request found for action ${action.name}`);
   }
 
-  const resolvedRequestPath = `${request.baseUrl ? request.baseUrl : ""
-    }${request.path.replace(
-      /\{(\w+)\}/g,
-      (_match: string, p1: string) => actionParams.params[p1]
-    )}`;
+  const resolvedRequestPath = `${
+    request.baseUrl ? request.baseUrl : ""
+  }${request.path.replace(
+    /\{(\w+)\}/g,
+    (_match: string, p1: string) => actionParams.params[p1]
+  )}`;
 
   let url = `${envs.PROXY_BASE_URL}/projects/${envs.PROJECT_ID}/sdk/proxy/${action.integrationName}`;
   const urlParams = new URLSearchParams(
@@ -110,7 +110,9 @@ export async function performOpenApiAction(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${jwt}`,
-      "X-Paragon-Proxy-Url": resolvedRequestPath.concat(`?${urlParams.toString()}`),
+      "X-Paragon-Proxy-Url": resolvedRequestPath.concat(
+        `?${urlParams.toString()}`
+      ),
       "X-Paragon-Use-Raw-Response": "true",
     },
     body:
@@ -277,8 +279,18 @@ export const MINUTES = 60;
 
 export async function handleResponseErrors(response: Response): Promise<void> {
   if (!response.ok) {
-    const errorResponse = await response.json();
-    if (errorResponse.message === "Integration not enabled for user.") {
+    let errorResponse;
+    try {
+      errorResponse = await response.json();
+    } catch (error) {
+      errorResponse = await response.text();
+    }
+    if (
+      (typeof errorResponse === "object" &&
+        errorResponse.message === "Integration not enabled for user.") ||
+      (typeof errorResponse === "string" &&
+        errorResponse.includes("Integration not enabled for user."))
+    ) {
       throw new UserNotConnectedError(
         "Integration not enabled for user.",
         errorResponse
@@ -348,11 +360,11 @@ export async function performProxyApiRequest(
 ): Promise<any> {
   const queryStr = args.queryParams
     ? `?${new URLSearchParams(
-      Object.entries(args.queryParams).reduce((acc, [key, value]) => {
-        acc[key] = String(value);
-        return acc;
-      }, {} as Record<string, string>)
-    ).toString()}`
+        Object.entries(args.queryParams).reduce((acc, [key, value]) => {
+          acc[key] = String(value);
+          return acc;
+        }, {} as Record<string, string>)
+      ).toString()}`
     : "";
 
   const url = `${envs.PROXY_BASE_URL}/projects/${envs.PROJECT_ID}/sdk/proxy/${args.integration}`;
