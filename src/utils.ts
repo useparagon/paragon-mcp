@@ -66,13 +66,8 @@ export async function getActions(jwt: string): Promise<any | null> {
         Authorization: `Bearer ${jwt}`,
       },
     });
-    if (!response.ok) {
-      const { message } = await response.json();
-      throw new Error(
-        `HTTP error; status: ${response.status}; message: ${message}`
-      );
-    }
 
+    await handleResponseErrors(response);
     return await response.json();
   } catch (error) {
     console.error("Could not make ActionKit POST request: " + error);
@@ -279,25 +274,44 @@ export const MINUTES = 60;
 
 export async function handleResponseErrors(response: Response): Promise<void> {
   if (!response.ok) {
-    let errorResponse;
+    // Read the body ONCE as text
+    let bodyText: string = "";
     try {
-      errorResponse = await response.json();
-    } catch (error) {
-      errorResponse = await response.text();
+      bodyText = await response.text();
+    } catch (e) {
+      bodyText = "";
     }
+
+    // Try to parse JSON from the text, but never re-read the stream
+    let parsedBody: unknown = null;
+    try {
+      parsedBody = bodyText ? JSON.parse(bodyText) : null;
+    } catch (e) {
+      parsedBody = null;
+    }
+
+    const parsedMessage =
+      typeof parsedBody === "object" && parsedBody !== null && "message" in (parsedBody as any)
+        ? (parsedBody as any).message
+        : undefined;
+
+    const message: string =
+      typeof parsedMessage === "string" && parsedMessage
+        ? parsedMessage
+        : bodyText;
+
     if (
-      (typeof errorResponse === "object" &&
-        errorResponse.message === "Integration not enabled for user.") ||
-      (typeof errorResponse === "string" &&
-        errorResponse.includes("Integration not enabled for user."))
+      (typeof parsedBody === "object" && parsedBody !== null && (parsedBody as any).message === "Integration not enabled for user.") ||
+      (typeof message === "string" && message.includes("Integration not enabled for user."))
     ) {
       throw new UserNotConnectedError(
         "Integration not enabled for user.",
-        errorResponse
+        parsedBody ?? bodyText
       );
     }
+
     throw new Error(
-      `HTTP error; status: ${response.status}; message: ${errorResponse.message}`
+      `HTTP error; status: ${response.status}; message: ${message}`
     );
   }
 }

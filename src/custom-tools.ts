@@ -70,8 +70,7 @@ async function performCustomNotionCreate(
       }),
     });
     await handleResponseErrors(response);
-    const res = await response.json();
-    return res;
+    return await response.json();
   } catch (error) {
     throw error;
   }
