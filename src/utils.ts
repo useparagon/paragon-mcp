@@ -66,13 +66,8 @@ export async function getActions(jwt: string): Promise<any | null> {
         Authorization: `Bearer ${jwt}`,
       },
     });
-    if (!response.ok) {
-      const { message } = await response.json();
-      throw new Error(
-        `HTTP error; status: ${response.status}; message: ${message}`
-      );
-    }
 
+    await handleResponseErrors(response);
     return await response.json();
   } catch (error) {
     console.error("Could not make ActionKit POST request: " + error);
@@ -279,26 +274,64 @@ export const MINUTES = 60;
 
 export async function handleResponseErrors(response: Response): Promise<void> {
   if (!response.ok) {
-    let errorResponse;
+    let bodyText = "";
     try {
-      errorResponse = await response.json();
-    } catch (error) {
-      errorResponse = await response.text();
-    }
-    if (
-      (typeof errorResponse === "object" &&
-        errorResponse.message === "Integration not enabled for user.") ||
-      (typeof errorResponse === "string" &&
-        errorResponse.includes("Integration not enabled for user."))
-    ) {
+      bodyText = await response.text();
+    } catch {}
+
+    const parsedBody = parseJsonOrNull(bodyText);
+    const message = determineMessage(parsedBody, bodyText);
+
+    if (message.includes("Integration not enabled for user.")) {
       throw new UserNotConnectedError(
         "Integration not enabled for user.",
-        errorResponse
+        parsedBody ?? bodyText
       );
     }
+
     throw new Error(
-      `HTTP error; status: ${response.status}; message: ${errorResponse.message}`
+      `HTTP error; status: ${response.status}; message: ${message}`
     );
+  }
+
+  function parseJsonOrNull(text: string): unknown | null {
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+
+  function hasMessageString(val: unknown | null): val is { message: string } {
+    return (
+      typeof val === "object" &&
+      val !== null &&
+      "message" in (val as Record<string, unknown>) &&
+      typeof (val as Record<string, unknown>).message === "string"
+    );
+  }
+
+  function safeStringify(value: unknown): string {
+    try {
+      const seen = new WeakSet<object>();
+      return JSON.stringify(value, (_key, val: unknown) => {
+        if (typeof val === "object" && val !== null) {
+          const obj = val as object;
+          if (seen.has(obj)) return "[Circular]";
+          seen.add(obj);
+        }
+        return val as unknown;
+      });
+    } catch {
+      return String(value);
+    }
+  }
+
+  function determineMessage(parsed: unknown | null, fallbackText: string): string {
+    if (hasMessageString(parsed)) return parsed.message;
+    if (parsed !== null) return safeStringify(parsed);
+    return fallbackText;
   }
 }
 
