@@ -1,0 +1,615 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+      "title": "Spotify Web API",
+      "description": "OpenAPI specification for Spotify's artist and album endpoints.",
+      "version": "1.0.0"
+    },
+    "servers": [
+    ],
+    "components": {
+      "securitySchemes": {
+        "OAuth2": {
+          "type": "oauth2",
+          "flows": {
+            "authorizationCode": {
+              "authorizationUrl": "https://accounts.spotify.com/authorize",
+              "tokenUrl": "https://accounts.spotify.com/api/token",
+              "scopes": {
+                "user-read-private": "Access your subscription details.",
+                "user-read-email": "Get your real email address.",
+                "playlist-modify-public": "Manage your public playlists.",
+                "playlist-modify-private": "Manage your private playlists."
+              }
+            }
+          }
+        }
+      },
+      "schemas": {
+        "Artist": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The Spotify ID for the artist."
+            },
+            "name": {
+              "type": "string",
+              "description": "The name of the artist."
+            },
+            "genres": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "A list of genres the artist is associated with."
+            },
+            "popularity": {
+              "type": "integer",
+              "description": "The popularity of the artist."
+            },
+            "followers": {
+              "type": "object",
+              "properties": {
+                "total": {
+                  "type": "integer",
+                  "description": "The total number of followers."
+                }
+              }
+            },
+            "images": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "description": "The source URL of the image."
+                  },
+                  "height": {
+                    "type": "integer",
+                    "description": "The image height in pixels."
+                  },
+                  "width": {
+                    "type": "integer",
+                    "description": "The image width in pixels."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Album": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The Spotify ID for the album."
+            },
+            "name": {
+              "type": "string",
+              "description": "The name of the album."
+            },
+            "release_date": {
+              "type": "string",
+              "description": "The release date of the album."
+            },
+            "total_tracks": {
+              "type": "integer",
+              "description": "The total number of tracks in the album."
+            },
+            "artists": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Artist"
+              },
+              "description": "The artists of the album."
+            },
+            "images": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "description": "The source URL of the image."
+                  },
+                  "height": {
+                    "type": "integer",
+                    "description": "The image height in pixels."
+                  },
+                  "width": {
+                    "type": "integer",
+                    "description": "The image width in pixels."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Playlist": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The Spotify ID for the playlist."
+            },
+            "name": {
+              "type": "string",
+              "description": "The name of the playlist."
+            },
+            "description": {
+              "type": "string",
+              "description": "The playlist description."
+            },
+            "public": {
+              "type": "boolean",
+              "description": "Whether the playlist is public or private."
+            },
+            "collaborative": {
+              "type": "boolean",
+              "description": "Whether the playlist is collaborative."
+            },
+            "followers": {
+              "type": "object",
+              "properties": {
+                "total": {
+                  "type": "integer",
+                  "description": "The total number of followers."
+                }
+              }
+            },
+            "owner": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "The Spotify ID of the user."
+                },
+                "display_name": {
+                  "type": "string",
+                  "description": "The display name of the user."
+                }
+              }
+            },
+            "images": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "description": "The source URL of the image."
+                  },
+                  "height": {
+                    "type": "integer",
+                    "description": "The image height in pixels."
+                  },
+                  "width": {
+                    "type": "integer",
+                    "description": "The image width in pixels."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "SearchResults": {
+          "type": "object",
+          "properties": {
+            "artists": {
+              "type": "object",
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Artist"
+                  }
+                },
+                "total": {
+                  "type": "integer",
+                  "description": "The total number of items available to return."
+                },
+                "limit": {
+                  "type": "integer",
+                  "description": "The maximum number of items in the response."
+                },
+                "offset": {
+                  "type": "integer",
+                  "description": "The offset of the items returned."
+                }
+              }
+            },
+            "albums": {
+              "type": "object",
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Album"
+                  }
+                },
+                "total": {
+                  "type": "integer",
+                  "description": "The total number of items available to return."
+                },
+                "limit": {
+                  "type": "integer",
+                  "description": "The maximum number of items in the response."
+                },
+                "offset": {
+                  "type": "integer",
+                  "description": "The offset of the items returned."
+                }
+              }
+            },
+            "playlists": {
+              "type": "object",
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Playlist"
+                  }
+                },
+                "total": {
+                  "type": "integer",
+                  "description": "The total number of items available to return."
+                },
+                "limit": {
+                  "type": "integer",
+                  "description": "The maximum number of items in the response."
+                },
+                "offset": {
+                  "type": "integer",
+                  "description": "The offset of the items returned."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "paths": {
+      "/artists/{id}": {
+        "get": {
+          "summary": "Get an artist",
+          "description": "Get an artist by their Spotify ID.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "description": "The Spotify ID of the artist.",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "A single artist object.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Artist"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/artists": {
+        "get": {
+          "summary": "Get several artists",
+          "description": "Get several artists by their Spotify IDs.",
+          "parameters": [
+            {
+              "name": "ids",
+              "in": "query",
+              "required": true,
+              "description": "A comma-separated list of the Spotify IDs for the artists.",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "An array of artist objects.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Artist"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/artists/{id}/albums": {
+        "get": {
+          "summary": "Get an artist's albums",
+          "description": "Get an artist's albums by their Spotify ID.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "description": "The Spotify ID of the artist.",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "An array of album objects.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Album"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/albums/{id}": {
+        "get": {
+          "summary": "Get an album",
+          "description": "Get an album by its Spotify ID.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "description": "The Spotify ID of the album.",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "A single album object.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Album"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/albums": {
+        "get": {
+          "summary": "Get several albums",
+          "description": "Get several albums by their Spotify IDs.",
+          "parameters": [
+            {
+              "name": "ids",
+              "in": "query",
+              "required": true,
+              "description": "A comma-separated list of the Spotify IDs for the albums.",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "An array of album objects.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Album"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/users/{user_id}/playlists": {
+        "post": {
+          "summary": "Create a playlist",
+          "description": "Create a playlist for a Spotify user.",
+          "security": [
+            {
+              "OAuth2": ["playlist-modify-public", "playlist-modify-private"]
+            }
+          ],
+          "parameters": [
+            {
+              "name": "user_id",
+              "in": "path",
+              "required": true,
+              "description": "The user's Spotify user ID.",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["name"],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "The name for the new playlist."
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "The description for the new playlist."
+                    },
+                    "public": {
+                      "type": "boolean",
+                      "description": "Whether the playlist will be public or private. Default: true",
+                      "default": true
+                    },
+                    "collaborative": {
+                      "type": "boolean",
+                      "description": "Whether the playlist will be collaborative. Default: false",
+                      "default": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Playlist created successfully.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Playlist"
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Bad or expired token. This can happen if the user revoked a token or the access token has expired."
+            },
+            "403": {
+              "description": "Bad OAuth request. This can happen if the app has been deleted or the user revoked access."
+            },
+            "429": {
+              "description": "The app has exceeded its rate limits."
+            }
+          }
+        }
+      },
+      "/playlists/{id}/followers": {
+        "put": {
+          "summary": "Follow a playlist",
+          "description": "Add the current user as a follower of a playlist.",
+          "security": [
+            {
+              "OAuth2": ["playlist-modify-public", "playlist-modify-private"]
+            }
+          ],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "description": "The Spotify ID of the playlist.",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": false,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "public": {
+                      "type": "boolean",
+                      "description": "Defaults to true. If true the playlist will be included in user's public playlists, if false it will remain private.",
+                      "default": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Playlist successfully followed."
+            },
+            "401": {
+              "description": "Bad or expired token. This can happen if the user revoked a token or the access token has expired."
+            },
+            "403": {
+              "description": "Bad OAuth request. This can happen if the app has been deleted or the user revoked access."
+            }
+          }
+        }
+      },
+      "/search": {
+        "get": {
+          "summary": "Search for items",
+          "description": "Search for artists, albums, tracks, or playlists that match a keyword string.",
+          "parameters": [
+            {
+              "name": "q",
+              "in": "query",
+              "required": true,
+              "description": "The search query's keywords.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "type",
+              "in": "query",
+              "required": true,
+              "description": "A comma-separated list of item types to search across. Valid types are: album, artist, playlist, track.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "required": false,
+              "description": "The maximum number of results to return.",
+              "schema": {
+                "type": "integer",
+                "default": 20,
+                "minimum": 1,
+                "maximum": 50
+              }
+            },
+            {
+              "name": "offset",
+              "in": "query",
+              "required": false,
+              "description": "The index of the first result to return.",
+              "schema": {
+                "type": "integer",
+                "default": 0,
+                "minimum": 0
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Search results containing artists, albums, or both depending on the request.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/SearchResults"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
