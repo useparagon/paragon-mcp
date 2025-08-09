@@ -1,5 +1,3 @@
-import { UserNotConnectedResponse } from "./type";
-
 export class JsonResponseError extends Error {
   public jsonResponse: any;
 
@@ -11,11 +9,8 @@ export class JsonResponseError extends Error {
 }
 
 export class UserNotConnectedError extends JsonResponseError {
-  public jsonResponse: UserNotConnectedResponse;
-
-  constructor(message: string, jsonResponse: UserNotConnectedResponse) {
-    super(message, jsonResponse);
-    this.jsonResponse = jsonResponse;
+  constructor(message: string) {
+    super(message, null);
     this.name = "UserNotConnectedError";
   }
 }

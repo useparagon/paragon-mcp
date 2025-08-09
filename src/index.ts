@@ -5,7 +5,14 @@ import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { createAccessTokenStore, getAccessTokenById } from "./access-tokens";
 import { registerTools } from "./tools";
 import { ExtendedTool, Integration, TransportPayload } from "./type";
-import { envs, Logger, signJwt, getSigningKey, getAllIntegrations, createProxyApiTool } from "./utils";
+import {
+  envs,
+  Logger,
+  signJwt,
+  getSigningKey,
+  getAllIntegrations,
+  createProxyApiTool,
+} from "./utils";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { loadCustomOpenApiTools } from "./openapi";
 import { getCustomTools } from "./custom-tools";
@@ -16,12 +23,23 @@ const server = new Server({
   version: "1.0.0",
 });
 let extraTools: Array<ExtendedTool> = [];
-let integrations: Array<Integration> = await getAllIntegrations(signJwt({ userId: envs.PROJECT_ID }));
+let integrations: Array<Integration> = await getAllIntegrations(
+  signJwt({ userId: envs.PROJECT_ID })
+);
 if (envs.ENABLE_CUSTOM_OPENAPI_ACTIONS) {
   extraTools = await loadCustomOpenApiTools(integrations);
 }
 if (envs.ENABLE_PROXY_API_TOOL) {
-  extraTools = extraTools.concat(createProxyApiTool(integrations));
+  extraTools = extraTools.concat(
+    createProxyApiTool(
+      integrations.filter((i) => {
+        if (envs.LIMIT_TO_INTEGRATIONS) {
+          return envs.LIMIT_TO_INTEGRATIONS.includes(i.type);
+        }
+        return true;
+      })
+    )
+  );
 }
 if (envs.ENABLE_CUSTOM_TOOL) {
   extraTools = extraTools.concat(getCustomTools());
@@ -118,8 +136,8 @@ async function main() {
         <head>
           <script src="${envs.CONNECT_SDK_CDN_URL}"></script>
           <script id="token-info" type="application/json">${JSON.stringify(
-      tokenInfo
-    )}</script>
+            tokenInfo
+          )}</script>
           <script type="text/javascript" src="/static/js/index.js"></script>
         </head>
         <body>

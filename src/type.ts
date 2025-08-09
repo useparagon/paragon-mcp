@@ -10,18 +10,6 @@ export interface LinkConnectionProps {
   loginToken?: string;
 }
 
-export type UserNotConnectedResponse = {
-  message: string;
-  code: string;
-  status: number;
-  meta: {
-    personaId: string;
-    projectId: string;
-    integrationId: string;
-    endUserId: string;
-  };
-};
-
 export interface ExtendedTool extends Tool {
   integrationName: string;
   integrationId?: string;
