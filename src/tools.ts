@@ -170,7 +170,7 @@ export function registerTools({
               throw new Error("User ID not found");
             }
             setupUrl = await generateSetupLink({
-              ...error.jsonResponse.meta,
+              projectId: envs.PROJECT_ID,
               integrationName:
                 tool.name === "CALL_API_REQUEST"
                   ? (args as ProxyApiRequestToolArgs).integration

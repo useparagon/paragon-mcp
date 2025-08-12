@@ -122,10 +122,20 @@ export async function loadCustomOpenApiTools(
               : []),
           ];
 
-          const toolName = `${item.integrationName
+          let integrationSlug = item.integrationName
             .split(".")
             .join("_")
-            .toUpperCase()}_${requestName.split(" ").join("_").toUpperCase().trimEnd()}`;
+            .toUpperCase();
+
+          if (integrationSlug.startsWith("CUSTOM_")) {
+            integrationSlug = integrationSlug.slice("CUSTOM_".length);
+          }
+
+          const toolName = `${integrationSlug}_${requestName
+            .split(" ")
+            .join("_")
+            .toUpperCase()
+            .trimEnd()}`.slice(0, 50);
 
           openApiRequests[toolName] = {
             baseUrl: spec.servers?.[0]?.url,
