@@ -113,7 +113,7 @@ export async function performOpenApiAction(
     body:
       request.method.toLowerCase() === OpenAPIV3.HttpMethods.GET
         ? undefined
-        : JSON.stringify(actionParams),
+        : JSON.stringify(actionParams.body),
   });
   await handleResponseErrors(response);
   return await response.text();
