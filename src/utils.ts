@@ -15,7 +15,7 @@ import { OpenAPIV3 } from "openapi-types";
 
 export const envs = z
   .object({
-    MCP_SERVER_URL: z.string().default(`http://localhost`),
+    MCP_SERVER_URL: z.string().default(`http://localhost:3001`),
     PROJECT_ID: z.string(),
     SIGNING_KEY: z.string().optional(),
     SIGNING_KEY_PATH: z.string().optional(),
@@ -50,11 +50,6 @@ export const envs = z
       ),
   })
   .parse(process.env);
-
-export const MCP_SERVER_DOMAIN =
-  envs.NODE_ENV === "development"
-    ? `${envs.MCP_SERVER_URL}:${envs.PORT}`
-    : envs.MCP_SERVER_URL;
 
 export async function getActions(jwt: string): Promise<any | null> {
   try {
@@ -234,7 +229,7 @@ export async function generateSetupLink({
 
   const id = createAccessToken(token);
 
-  return `${MCP_SERVER_DOMAIN}/setup?token=${id}`;
+  return `${envs.MCP_SERVER_URL}/setup?token=${id}`;
 }
 
 export async function getAllIntegrations(jwt: string): Promise<any | null> {

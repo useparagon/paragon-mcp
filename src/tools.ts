@@ -182,18 +182,12 @@ export function registerTools({
               content: [
                 {
                   type: "text",
-                  text: "The integration is not enabled for the user. To set it up, the user will need to visit:",
-                },
-                {
-                  type: "text",
-                  text: `${setupUrl}`,
-                },
-                {
-                  type: "text",
-                  text: `Instruct the user to set up their ${tool.integrationName} integration by visiting the link. Format the setup link in Markdown.`,
+                  text: `The ${tool.integrationName} integration is not enabled for the user. To set it up and use this tool, the user will need to visit: ${setupUrl}.
+
+Instruct the user to set up their ${tool.integrationName} integration by visiting the link. Format the setup link in Markdown.`,
                 },
               ],
-              isError: true,
+              isError: false,
             };
           } catch (generateError) {
             error = generateError;
