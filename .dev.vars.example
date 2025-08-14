@@ -1,0 +1,16 @@
+# Copy this file to `.dev.vars` for local development with `wrangler dev`.
+# Values here are used by the Worker only. Your container/app reads its own env from Docker or Cloudflare variables.
+
+# The local upstream the Worker proxies to during `wrangler dev`.
+LOCAL_UPSTREAM="http://127.0.0.1:3001"
+
+# Optional: If you want to run the app locally without Docker, you can export these and run `npm run start`.
+# The app requires a PROJECT_ID and a SIGNING_KEY (or SIGNING_KEY_PATH). The SIGNING_KEY here is a dummy key suitable
+# only for local testing and will not authenticate against Paragon's APIs.
+PROJECT_ID="local-dev"
+PORT="3001"
+MCP_SERVER_URL="http://127.0.0.1:8787"
+
+# A dummy RSA private key for local signing only. Replace with a real key for actual calls.
+# Keep the literal \n sequences. The server code converts them to newlines at runtime.
+SIGNING_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC8gYz8rU7w3H59\n2Y7yigBq9y8W4b7kHIkYQ8d3g2bupL5zv1h6mRFi3kq8rZJ0p0tG8m9x0k5Jf2aK\nX6H4V8j5n4Xw2lV/Se6tFf6l0pGv6s1mJ8sY2Jq7nOyiZ4x3h1fR0Jj5bqlqQ9yQ\nW6Bqzq8y1d6mA7kJ7p3s4bLQbq1WBd7WqO4z+oQ7iKq7Rxo3n5bH6mIEtCVF3jZj\nZQZp7s7d4o5wE0g5y2c4O2VfHpWua1H0h6k9cZlqfM9m1t1n7y8o3m1K6RkE6z1q\n1uY6Hn1ZqXv9tVJYtG3o5r4tWqZb7gQkjPn7JdGxQv4h7JQqx3nYz0B1i7mXAgMB\nAAECggEAHk9uZt3m+9kQmH8u3KQ1jU2qK8sCzKzJc8tYkZk3qF6vQv1D8nK5o4QZ\nKhSx2C7h1M4lYxF9gVwglb9j9fTjFQH+Z1WZtXzowfTLhQq8g5R6p7Q6r2qH9m4V\n5YDr3hE2y7v7l2sT4J3k8k/w3z9HrYV8v8cJZ7jRFo7IYkz2b6a1LQF9a2Dk5S8n\n8i8mQ3p1nM8qf8j7G2w3V6V4j7B4c1m2m8H5P0q9s7Z4y8B6l1H3j2l4y7Z6v5nJ\nQ1mJz9nK5l0h2g4f5h6j7k8l9m0n1o2p3q4r5s6t7u8v9w0x1y2z3A==\n-----END PRIVATE KEY-----"

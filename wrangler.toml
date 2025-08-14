@@ -1,0 +1,20 @@
+name = "paragon-mcp"
+main = "worker/src/index.ts"
+compatibility_date = "2025-08-14"
+workers_dev = true
+
+# Fill this in when ready
+# account_id = "YOUR_ACCOUNT_ID"
+
+# Bind the container image built from the root Dockerfile.
+# Note: During `wrangler dev`, we fall back to LOCAL_UPSTREAM instead of requiring a container binding.
+[containers]
+binding = "MCP_CONTAINER"
+image = "./Dockerfile"
+# The port your app listens on inside the container
+default_port = 3001
+
+[vars]
+# Used only by the Worker during local development to proxy requests.
+# Create a `.dev.vars` file to override this.
+LOCAL_UPSTREAM = "http://127.0.0.1:3001"
