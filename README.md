@@ -96,7 +96,7 @@ This repo is configured to deploy via Cloudflare Containers using the root `Dock
   - Deploy: `npx wrangler deploy`
 
 Notes:
-- In production, the Worker uses a container binding built from the root `Dockerfile`.
+- The Worker uses `@cloudflare/containers` to route to your Dockerfile-backed container in production.
 - In `wrangler dev`, the Worker proxies to `LOCAL_UPSTREAM` (defaults to `http://127.0.0.1:3001`).
 - Set secrets with `npx wrangler secret put NAME`.
 
