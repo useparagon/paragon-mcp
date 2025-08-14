@@ -79,6 +79,27 @@ npm run start
 
 The server will start on `http://localhost:3001` by default.
 
+## Cloudflare Containers (Dockerfile) Deployment
+
+This repo is configured to deploy via Cloudflare Containers using the root `Dockerfile` and a small Worker shim in `worker/`.
+
+- Local dev
+  - Start the app locally (Docker or Node):
+    - Docker: `docker compose up --build` (exposes `http://localhost:3001`)
+    - Node: `npm run start` (ensure `.env` variables are set)
+  - Copy `.dev.vars.example` to `.dev.vars` and adjust if needed
+  - Run: `npx wrangler dev` and open the printed URL (default 8787)
+
+- Deploy (after filling Cloudflare creds)
+  - Fill `account_id` in `wrangler.toml`
+  - Auth: `npx wrangler login`
+  - Deploy: `npx wrangler deploy`
+
+Notes:
+- The Worker uses `@cloudflare/containers` to route to your Dockerfile-backed container in production.
+- In `wrangler dev`, the Worker proxies to `LOCAL_UPSTREAM` (defaults to `http://127.0.0.1:3001`).
+- Set secrets with `npx wrangler secret put NAME`.
+
 ## Client Configuration
 
 > **Note:** Cursor's MCP implementation is a very new protocol and is still in active development. You might encounter unexpected issues. When making changes to the MCP server URL, a full client restart is recommended. For more information about current limitations, see the [Cursor MCP documentation](https://docs.cursor.com/context/model-context-protocol#limitations).
