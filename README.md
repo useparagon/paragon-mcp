@@ -79,6 +79,11 @@ npm run start
 
 The server will start on `http://localhost:3001` by default.
 
+In Docker:
+```bash
+docker build -t actionkit-playground-mcp .
+docker run -p 3001:3001 --env-file .env actionkit-playground-mcp
+```
 ## Client Configuration
 
 > **Note:** Cursor's MCP implementation is a very new protocol and is still in active development. You might encounter unexpected issues. When making changes to the MCP server URL, a full client restart is recommended. For more information about current limitations, see the [Cursor MCP documentation](https://docs.cursor.com/context/model-context-protocol#limitations).
