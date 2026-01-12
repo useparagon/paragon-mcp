@@ -155,6 +155,10 @@ The MCP will automatically match OpenAPI files with Active integrations in your 
 
 To allow the agent to write its own requests to the integration API, set `ENABLE_PROXY_API_TOOL=true` in your environment.
 
+## One-Click Deploy
+Testing for valid app setup:
+`https://www.heroku.com/deploy?template=https://github.com/jackmu-paragon/paragon-mcp`
+
 ## License
 
 This project is open source and available under the [MIT License](https://opensource.org/license/mit).

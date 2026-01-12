@@ -23,17 +23,17 @@
       "value": "signing-key"
     },
     "MCP_SERVER_URL": {
-	"descriptions": "URL of where your server is hosted. Used to send magic links to authenticate integrations.",
-	"value": "Your Heroku Domain URL",
-    }
+	"description": "URL of where your server is hosted. Used to send magic links to authenticate integrations.",
+	"value": "Your Heroku Domain URL"
+    },
     "NODE_ENV": {
 	"description": "node environment",
-	"value": "development
+	"value": "development"
     }
   },
   "formation": {
     "web": {
-      "quantity": 1,
+      "quantity": 1
     }
   },
   "image": "heroku/nodejs",
@@ -42,6 +42,6 @@
     {
       "url": "https://github.com/heroku/buildpacks-nodejs"
     }
-  ],
+  ]
 }
 
