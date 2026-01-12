@@ -35,24 +35,19 @@
     },
     "ENABLE_CUSTOM_OPENAPI_ACTIONS": {
 	"description": "Custom actions via OpenAPI specs",
-	"value": false,
+	"value": "false",
 	"required": false
     },
      "ENABLE_PROXY_API_TOOL": {
 	"description": "Tool for Proxy API (see Paragon docs on the Proxy API for connected integrations",
-	"value": false,
+	"value": "false",
 	"required": false
     },
     "ENABLE_CUSTOM_TOOL": {
 	"description": "Enable if you have defined custom tools in custom-tools.ts",
-	"value": false,
+	"value": "false",
 	"required": false
-    },
-    "ENABLE_CUSTOM_TOOL": {
-	"description": "Enable if you have defined custom tools in custom-tools.ts",
-	"value": false,
-	"required": false
-    } 
+    }
   },
   "formation": {
     "web": {
