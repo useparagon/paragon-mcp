@@ -15,20 +15,44 @@
   "env": {
     "PROJECT_ID": {
       "description": "Your Paragon Project ID. Refer to the Paragon docs for instructions on how to retrieve your Project ID and Signing Key",
-      "value": "project-id"
+      "value": "project-id",
+	"required": true
     },
     "SIGNING_KEY": {
       "description": "Your Paragon Signing Key. Refer to the Paragon docs for instructions on how to retrieve your Project ID and Signing Key",
-      "value": "signing-key"
+      "value": "signing-key",
+	"required": true
     },
     "MCP_SERVER_URL": {
 	"description": "URL of where your server is hosted. Used to send magic links to authenticate integrations.",
-	"value": "Your Heroku Domain URL"
+	"value": "Your Heroku Domain URL",
+        "required": true
     },
     "NODE_ENV": {
 	"description": "node environment",
-	"value": "development"
-    }
+	"value": "development",
+	"required": false
+    },
+    "ENABLE_CUSTOM_OPENAPI_ACTIONS": {
+	"description": "Custom actions via OpenAPI specs",
+	"value": false,
+	"required": false
+    },
+     "ENABLE_PROXY_API_TOOL": {
+	"description": "Tool for Proxy API (see Paragon docs on the Proxy API for connected integrations",
+	"value": false,
+	"required": false
+    },
+    "ENABLE_CUSTOM_TOOL": {
+	"description": "Enable if you have defined custom tools in custom-tools.ts",
+	"value": false,
+	"required": false
+    },
+    "ENABLE_CUSTOM_TOOL": {
+	"description": "Enable if you have defined custom tools in custom-tools.ts",
+	"value": false,
+	"required": false
+    } 
   },
   "formation": {
     "web": {
