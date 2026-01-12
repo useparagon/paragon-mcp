@@ -1,7 +1,6 @@
 {
   "name": "Paragon MCP",
-  "description": "MCP server for Paragon's ActionKit. Provide your agent with hundreds of integration
-	tools for providers like Slack, HubSpot, and Notion. Self-hosted and multi-tenant",
+  "description": "MCP server for Paragon's ActionKit. Provide your agent with hundreds of integration tools for providers like Slack, HubSpot, and Notion. Self-hosted and multi-tenant",
   "keywords": [
     "MCP",
     "agents",
@@ -18,7 +17,7 @@
       "description": "Your Paragon Project ID. Refer to the Paragon docs for instructions on how to retrieve your Project ID and Signing Key",
       "value": "project-id"
     },
-   "SIGNING_KEY": {
+    "SIGNING_KEY": {
       "description": "Your Paragon Signing Key. Refer to the Paragon docs for instructions on how to retrieve your Project ID and Signing Key",
       "value": "signing-key"
     },
