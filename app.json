@@ -58,7 +58,7 @@
   "addons": [],
   "buildpacks": [
     {
-      "url": "https://github.com/heroku/buildpacks-nodejs"
+      "url": "heroku/nodejs"
     }
   ]
 }
