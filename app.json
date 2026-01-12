@@ -1,0 +1,47 @@
+{
+  "name": "Paragon MCP",
+  "description": "MCP server for Paragon's ActionKit. Provide your agent with hundreds of integration
+	tools for providers like Slack, HubSpot, and Notion. Self-hosted and multi-tenant",
+  "keywords": [
+    "MCP",
+    "agents",
+    "tools"
+  ],
+  "website": "https://useparagon.com",
+  "repository": "https://github.com/jackmu-paragon/paragon-mcp",
+  "logo": "https://raw.githubusercontent.com/useparagon/aws-on-prem/master/assets/paragon-logo-dark.png",
+  "scripts": {
+    "postdeploy": "npm start"
+  },
+  "env": {
+    "PROJECT_ID": {
+      "description": "Your Paragon Project ID. Refer to the Paragon docs for instructions on how to retrieve your Project ID and Signing Key",
+      "value": "project-id"
+    },
+   "SIGNING_KEY": {
+      "description": "Your Paragon Signing Key. Refer to the Paragon docs for instructions on how to retrieve your Project ID and Signing Key",
+      "value": "signing-key"
+    },
+    "MCP_SERVER_URL": {
+	"descriptions": "URL of where your server is hosted. Used to send magic links to authenticate integrations.",
+	"value": "Your Heroku Domain URL",
+    }
+    "NODE_ENV": {
+	"description": "node environment",
+	"value": "development
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+    }
+  },
+  "image": "heroku/nodejs",
+  "addons": [],
+  "buildpacks": [
+    {
+      "url": "https://github.com/heroku/buildpacks-nodejs"
+    }
+  ],
+}
+
