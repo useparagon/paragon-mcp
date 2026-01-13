@@ -10,7 +10,6 @@
   "repository": "https://github.com/jackmu-paragon/paragon-mcp",
   "logo": "https://raw.githubusercontent.com/useparagon/aws-on-prem/master/assets/paragon-logo-dark.png",
   "scripts": {
-    "postdeploy": "npm start"
   },
   "env": {
     "PROJECT_ID": {
