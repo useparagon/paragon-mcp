@@ -128,7 +128,7 @@ cloud hosting platform of your choice.
 
 For testing, you can one-click deploy the server through Heroku.
 
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://www.heroku.com/deploy)
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://www.heroku.com/deploy?template=https://github.com/jackmu-paragon/paragon-mcp)
 
 ## API Endpoints
 
