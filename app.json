@@ -9,8 +9,7 @@
   "website": "https://useparagon.com",
   "repository": "https://github.com/useparagon/paragon-mcp",
   "logo": "https://raw.githubusercontent.com/useparagon/aws-on-prem/master/assets/paragon-logo-dark.png",
-  "scripts": {
-  },
+  "scripts": {},
   "env": {
     "PROJECT_ID": {
       "description": "Your Paragon Project ID. Refer to the Paragon docs for instructions on how to retrieve your Project ID and Signing Key",
@@ -39,6 +38,7 @@
     }
   },
   "image": "heroku/nodejs",
+  "stack": "container",
   "addons": [],
   "buildpacks": [
     {
