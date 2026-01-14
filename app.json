@@ -29,7 +29,7 @@
     },
     "NODE_ENV": {
 	"description": "node environment",
-	"value": "development",
+	"value": "production",
 	"required": false
     }
       },
