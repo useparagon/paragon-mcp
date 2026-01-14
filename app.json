@@ -38,6 +38,7 @@
     }
   },
   "image": "heroku/nodejs",
+  "stack": "container",
   "addons": [],
   "buildpacks": [
     {
