@@ -122,6 +122,14 @@ Replace:
 - `http://localhost:3001` with your server's domain
 - `user-id` with the ID for the Connected User to use with ActionKit (this parameter only available in development mode)
 
+## Deploying the MCP Server
+The Paragon MCP server can be completely **self-hosted**. Deploy the MCP Server via Docker in any 
+cloud hosting platform of your choice.
+
+For testing, you can one-click deploy the server through Heroku.
+
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://www.heroku.com/deploy?template=https://github.com/useparagon/paragon-mcp)
+
 ## API Endpoints
 
 - `GET /sse`: Establishes SSE connection for MCP communication
