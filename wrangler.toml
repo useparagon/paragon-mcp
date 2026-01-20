@@ -1,0 +1,26 @@
+name = "paragon-mcp"
+main = "worker/src/index.ts"
+compatibility_date = "2025-08-14"
+workers_dev = true
+
+# Fill this in when ready
+# account_id = "YOUR_ACCOUNT_ID"
+
+# Bind the container image built from the root Dockerfile.
+# Note: During `wrangler dev`, we fall back to LOCAL_UPSTREAM instead of requiring a container binding.
+[containers]
+image = "./Dockerfile"
+class_name = "MCPContainer"
+binding = "MCP_CONTAINER"
+
+[durable_objects]
+bindings = [
+	{ name = "MCP_CONTAINER", class_name = "MCPContainer" }
+]
+
+[migrations]
+[[migrations.new_classes]]
+class_name = "MCPContainer"
+
+[vars]
+LOCAL_UPSTREAM = "http://127.0.0.1:3001"
