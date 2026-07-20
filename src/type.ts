@@ -1,4 +1,3 @@
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 export interface LinkConnectionProps {
@@ -16,12 +15,6 @@ export interface ExtendedTool extends Tool {
   requiredFields: string[];
   isOpenApiTool: boolean;
 }
-
-export type TransportPayload = {
-  transport: SSEServerTransport;
-  currentJwt: string;
-  cachedTools?: ExtendedTool[];
-};
 
 interface BaseIntegration {
   id: string;

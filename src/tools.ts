@@ -9,7 +9,6 @@ import { JsonResponseError, UserNotConnectedError } from "./errors";
 import {
   ExtendedTool,
   ProxyApiRequestToolArgs,
-  TransportPayload,
 } from "./type";
 import {
   decodeJwt,
@@ -50,13 +49,15 @@ async function getAndProcessTools(
 
 export function registerTools({
   server,
+  currentJwt,
   extraTools = [],
-  transports,
 }: {
   server: Server;
+  currentJwt: string;
   extraTools?: Array<ExtendedTool>;
-  transports: Record<string, TransportPayload>;
 }) {
+  let cachedTools: Array<ExtendedTool> | undefined;
+
   server.registerCapabilities({
     tools: {
       listChanged: true,
@@ -65,35 +66,24 @@ export function registerTools({
 
   server.setRequestHandler(
     ListToolsRequestSchema,
-    async (_params, { sessionId }) => {
-      if (!sessionId || !transports[sessionId]) {
-        throw new Error(`No session found by ID: ${sessionId}`);
-      }
-      const sessionData = transports[sessionId];
-
-      if (sessionData.cachedTools) {
-        return { tools: sessionData.cachedTools };
+    async () => {
+      if (cachedTools) {
+        return { tools: cachedTools };
       }
 
-      const filteredTools = await getAndProcessTools(sessionData.currentJwt, extraTools);
-      transports[sessionId].cachedTools = filteredTools;
-      return { tools: filteredTools };
+      cachedTools = await getAndProcessTools(currentJwt, extraTools);
+      return { tools: cachedTools };
     }
   );
 
   server.setRequestHandler(
     CallToolRequestSchema,
-    async (request, { sessionId }) => {
-      if (!sessionId || !transports[sessionId]) {
-        throw new Error(`No session found by ID: ${sessionId}`);
-      }
+    async (request) => {
       const { name, arguments: args } = request.params;
-      const sessionData = transports[sessionId];
-      if (!sessionData.cachedTools) {
-        sessionData.cachedTools = await getAndProcessTools(sessionData.currentJwt, extraTools);
+      if (!cachedTools) {
+        cachedTools = await getAndProcessTools(currentJwt, extraTools);
       }
-      const dynamicTools = sessionData.cachedTools;
-      const tool = dynamicTools.find((t) => t.name === name);
+      const tool = cachedTools.find((candidate) => candidate.name === name);
       if (!tool) {
         throw new Error(`Tool not found: ${name}`);
       }
@@ -122,24 +112,24 @@ export function registerTools({
           response = await performOpenApiAction(
             tool,
             args as { params: any; body: any },
-            transports[sessionId].currentJwt
+            currentJwt
           );
         } else if (tool.name === "CALL_API_REQUEST") {
           response = await performProxyApiRequest(
             args as ProxyApiRequestToolArgs,
-            transports[sessionId].currentJwt
+            currentJwt
           );
         } else if (tool.name.split("_")[0] === "CUSTOM") {
           response = await performCustomAction(
             tool.name,
             args,
-            transports[sessionId].currentJwt
+            currentJwt
           );
         } else {
           response = await performAction(
             tool.name,
             args,
-            transports[sessionId].currentJwt
+            currentJwt
           );
         }
 
@@ -164,8 +154,7 @@ export function registerTools({
         if (error instanceof UserNotConnectedError) {
           let setupUrl;
           try {
-            let userId = decodeJwt(transports[sessionId!].currentJwt)?.payload
-              .sub as string;
+            let userId = decodeJwt(currentJwt)?.payload.sub as string;
             if (!userId) {
               throw new Error("User ID not found");
             }

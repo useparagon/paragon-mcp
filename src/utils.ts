@@ -30,6 +30,28 @@ export const envs = z
     ENABLE_CUSTOM_OPENAPI_ACTIONS: z.boolean({ coerce: true }).default(false),
     ENABLE_PROXY_API_TOOL: z.boolean({ coerce: true }).default(false),
     ENABLE_CUSTOM_TOOL: z.boolean({ coerce: true }).default(false),
+    ENABLE_LEGACY_SSE: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((value) => value === "true"),
+    MCP_ALLOWED_HOSTS: z
+      .string()
+      .default("")
+      .transform((value) =>
+        value
+          .split(",")
+          .map((host) => host.trim())
+          .filter(Boolean)
+      ),
+    MCP_ALLOWED_ORIGINS: z
+      .string()
+      .default("")
+      .transform((value) =>
+        value
+          .split(",")
+          .map((origin) => origin.trim())
+          .filter(Boolean)
+      ),
     LIMIT_TO_INTEGRATIONS: z
       .string()
       .default("")
