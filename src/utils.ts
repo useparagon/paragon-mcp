@@ -15,7 +15,10 @@ import { OpenAPIV3 } from "openapi-types";
 
 export const envs = z
   .object({
-    MCP_SERVER_URL: z.string().default(`http://localhost:3001`),
+    MCP_SERVER_URL: z
+      .string()
+      .default("http://localhost:3001")
+      .transform((value) => value || "http://localhost:3001"),
     PROJECT_ID: z.string(),
     SIGNING_KEY: z.string().optional(),
     SIGNING_KEY_PATH: z.string().optional(),
@@ -52,6 +55,12 @@ export const envs = z
           .map((origin) => origin.trim())
           .filter(Boolean)
       ),
+    MCP_SESSION_IDLE_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(30 * 60 * 1000),
+    MCP_MAX_SESSIONS: z.coerce.number().int().positive().default(1000),
     LIMIT_TO_INTEGRATIONS: z
       .string()
       .default("")

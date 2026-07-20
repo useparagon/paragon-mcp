@@ -49,11 +49,11 @@ async function getAndProcessTools(
 
 export function registerTools({
   server,
-  currentJwt,
+  getCurrentJwt,
   extraTools = [],
 }: {
   server: Server;
-  currentJwt: string;
+  getCurrentJwt: () => string;
   extraTools?: Array<ExtendedTool>;
 }) {
   let cachedTools: Array<ExtendedTool> | undefined;
@@ -71,7 +71,7 @@ export function registerTools({
         return { tools: cachedTools };
       }
 
-      cachedTools = await getAndProcessTools(currentJwt, extraTools);
+      cachedTools = await getAndProcessTools(getCurrentJwt(), extraTools);
       return { tools: cachedTools };
     }
   );
@@ -81,7 +81,7 @@ export function registerTools({
     async (request) => {
       const { name, arguments: args } = request.params;
       if (!cachedTools) {
-        cachedTools = await getAndProcessTools(currentJwt, extraTools);
+        cachedTools = await getAndProcessTools(getCurrentJwt(), extraTools);
       }
       const tool = cachedTools.find((candidate) => candidate.name === name);
       if (!tool) {
@@ -89,6 +89,7 @@ export function registerTools({
       }
 
       try {
+        const currentJwt = getCurrentJwt();
         const validate = ajv.compile(tool.inputSchema);
         const valid = validate(args);
 
@@ -154,7 +155,7 @@ export function registerTools({
         if (error instanceof UserNotConnectedError) {
           let setupUrl;
           try {
-            let userId = decodeJwt(currentJwt)?.payload.sub as string;
+            let userId = decodeJwt(getCurrentJwt())?.payload.sub as string;
             if (!userId) {
               throw new Error("User ID not found");
             }

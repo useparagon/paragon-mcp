@@ -1,7 +1,7 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
-import express, { Request, Response } from "express";
+import express, { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -25,7 +25,12 @@ import { getCustomTools } from "./custom-tools";
 type Session<TTransport> = {
   transport: TTransport;
   server: Server;
-  identity: string;
+  authentication: RequestAuthentication;
+};
+
+type StreamableSession = Session<StreamableHTTPServerTransport> & {
+  activeRequests: number;
+  idleTimeout?: ReturnType<typeof setTimeout>;
 };
 
 type RequestAuthentication = {
@@ -38,17 +43,23 @@ type CreateAppOptions = {
   enableLegacySse?: boolean;
   allowedHosts?: string[];
   allowedOrigins?: string[];
+  sessionIdleTimeoutMs?: number;
+  maxStreamableSessions?: number;
 };
 
 function createMcpServer(
-  currentJwt: string,
+  authentication: RequestAuthentication,
   extraTools: Array<ExtendedTool>
 ): Server {
   const server = new Server({
     name: "paragon-mcp",
     version: "1.0.0",
   });
-  registerTools({ server, currentJwt, extraTools });
+  registerTools({
+    server,
+    getCurrentJwt: () => authentication.currentJwt,
+    extraTools,
+  });
   return server;
 }
 
@@ -57,14 +68,34 @@ function authenticateRequest(
   res: Response
 ): RequestAuthentication | undefined {
   const authorization = req.headers.authorization;
-  if (authorization?.startsWith("Bearer ")) {
+  if (authorization) {
+    if (!authorization.startsWith("Bearer ")) {
+      res.status(401).send("Unauthorized");
+      return undefined;
+    }
+
     const currentJwt = authorization.slice(7).trim();
     if (currentJwt) {
-      return {
-        currentJwt,
-        identity: `bearer:${currentJwt}`,
-      };
+      try {
+        const payload = jwt.verify(currentJwt, getSigningKey(), {
+          algorithms: ["RS256"],
+        });
+        if (typeof payload !== "string" && typeof payload.sub === "string") {
+          return {
+            currentJwt,
+            identity: `bearer:${createHash("sha256")
+              .update(currentJwt)
+              .digest("hex")}`,
+          };
+        }
+      } catch {
+        res.status(401).send("Unauthorized");
+        return undefined;
+      }
     }
+
+    res.status(401).send("Unauthorized");
+    return undefined;
   }
 
   if (envs.NODE_ENV === "development" && typeof req.query.user === "string") {
@@ -86,10 +117,8 @@ function getDefaultAllowedHosts(): string[] {
     Logger.debug("MCP_SERVER_URL is not a valid URL; using explicit hosts only");
   }
 
-  if (envs.NODE_ENV === "development") {
-    allowedHosts.add(`localhost:${envs.PORT}`);
-    allowedHosts.add(`127.0.0.1:${envs.PORT}`);
-  }
+  allowedHosts.add(`localhost:${envs.PORT}`);
+  allowedHosts.add(`127.0.0.1:${envs.PORT}`);
 
   return [...allowedHosts];
 }
@@ -144,24 +173,86 @@ function sendJsonRpcError(
   });
 }
 
+function handleMcpJsonError(
+  error: unknown,
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  if (error instanceof SyntaxError) {
+    sendJsonRpcError(res, 400, -32700, "Parse error");
+    return;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    error.status === 415
+  ) {
+    sendJsonRpcError(res, 415, -32000, "Unsupported Media Type");
+    return;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    error.status === 413
+  ) {
+    sendJsonRpcError(res, 413, -32000, "Request body too large");
+    return;
+  }
+
+  next(error);
+}
+
 export function createApp({
   extraTools = [],
   enableLegacySse = envs.ENABLE_LEGACY_SSE,
   allowedHosts = getDefaultAllowedHosts(),
   allowedOrigins = getDefaultAllowedOrigins(),
+  sessionIdleTimeoutMs = envs.MCP_SESSION_IDLE_TIMEOUT_MS,
+  maxStreamableSessions = envs.MCP_MAX_SESSIONS,
 }: CreateAppOptions = {}) {
+  createAccessTokenStore();
   const app = express();
   const legacySessions = new Map<
     string,
     Session<SSEServerTransport>
   >();
-  const streamableSessions = new Map<
-    string,
-    Session<StreamableHTTPServerTransport>
-  >();
+  const streamableSessions = new Map<string, StreamableSession>();
 
-  app.use(express.json());
+  const deleteStreamableSession = (sessionId: string) => {
+    const session = streamableSessions.get(sessionId);
+    if (session?.idleTimeout) {
+      clearTimeout(session.idleTimeout);
+    }
+    streamableSessions.delete(sessionId);
+  };
+
+  const scheduleStreamableSessionExpiry = (
+    sessionId: string,
+    session: StreamableSession
+  ) => {
+    if (session.idleTimeout) {
+      clearTimeout(session.idleTimeout);
+    }
+    session.idleTimeout = setTimeout(() => {
+      if (streamableSessions.get(sessionId) !== session) {
+        return;
+      }
+      streamableSessions.delete(sessionId);
+      void session.server.close().catch((error) => {
+        Logger.debug("Error closing expired Streamable HTTP session:", error);
+      });
+    }, sessionIdleTimeoutMs);
+    session.idleTimeout.unref();
+  };
+
   app.use("/static", express.static("static"));
+  app.use("/mcp", express.json({ limit: "4mb" }));
+  app.use("/mcp", handleMcpJsonError);
 
   app.all("/mcp", async (req, res) => {
     if (!["GET", "POST", "DELETE"].includes(req.method)) {
@@ -179,8 +270,20 @@ export function createApp({
       return;
     }
 
+    if (req.method === "POST" && !req.is("application/json")) {
+      sendJsonRpcError(
+        res,
+        415,
+        -32000,
+        "Unsupported Media Type: Content-Type must be application/json"
+      );
+      return;
+    }
+
     const sessionId = req.header("mcp-session-id");
-    let session: Session<StreamableHTTPServerTransport> | undefined;
+    const isInitializationRequest =
+      !sessionId && req.method === "POST" && isInitializeRequest(req.body);
+    let session: StreamableSession | undefined;
 
     if (sessionId) {
       session = streamableSessions.get(sessionId);
@@ -188,32 +291,44 @@ export function createApp({
         sendJsonRpcError(res, 404, -32001, "Session not found");
         return;
       }
-      if (session.identity !== authentication.identity) {
+      if (session.authentication.identity !== authentication.identity) {
         res.status(403).send("Forbidden");
         return;
       }
-    } else if (req.method === "POST" && isInitializeRequest(req.body)) {
+    } else if (isInitializationRequest) {
+      if (streamableSessions.size >= maxStreamableSessions) {
+        sendJsonRpcError(res, 503, -32000, "Session capacity reached");
+        return;
+      }
+
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: randomUUID,
         onsessioninitialized: (initializedSessionId) => {
           streamableSessions.set(initializedSessionId, session!);
         },
         onsessionclosed: (closedSessionId) => {
-          streamableSessions.delete(closedSessionId);
+          deleteStreamableSession(closedSessionId);
         },
       });
-      const server = createMcpServer(authentication.currentJwt, extraTools);
+      const server = createMcpServer(authentication, extraTools);
       session = {
         transport,
         server,
-        identity: authentication.identity,
+        authentication,
+        activeRequests: 0,
       };
       transport.onclose = () => {
         if (transport.sessionId) {
-          streamableSessions.delete(transport.sessionId);
+          deleteStreamableSession(transport.sessionId);
         }
       };
-      await server.connect(transport);
+      try {
+        await server.connect(transport);
+      } catch (error) {
+        Logger.debug("Error connecting Streamable HTTP transport:", error);
+        sendJsonRpcError(res, 500, -32603, "Internal server error");
+        return;
+      }
     } else {
       sendJsonRpcError(
         res,
@@ -224,8 +339,17 @@ export function createApp({
       return;
     }
 
+    if (session.idleTimeout) {
+      clearTimeout(session.idleTimeout);
+      session.idleTimeout = undefined;
+    }
+    session.activeRequests += 1;
+
     try {
       await session.transport.handleRequest(req, res, req.body);
+      if (isInitializationRequest && !session.transport.sessionId) {
+        await session.server.close();
+      }
     } catch (error) {
       if (!res.headersSent) {
         sendJsonRpcError(res, 500, -32603, "Internal server error");
@@ -234,6 +358,16 @@ export function createApp({
         await session.server.close();
       }
       Logger.debug("Error handling Streamable HTTP request:", error);
+    } finally {
+      session.activeRequests -= 1;
+      const initializedSessionId = session.transport.sessionId;
+      if (
+        initializedSessionId &&
+        streamableSessions.get(initializedSessionId) === session &&
+        session.activeRequests === 0
+      ) {
+        scheduleStreamableSessionExpiry(initializedSessionId, session);
+      }
     }
   });
 
@@ -245,11 +379,11 @@ export function createApp({
       }
 
       const transport = new SSEServerTransport("/messages", res);
-      const server = createMcpServer(authentication.currentJwt, extraTools);
+      const server = createMcpServer(authentication, extraTools);
       const session = {
         transport,
         server,
-        identity: authentication.identity,
+        authentication,
       };
       legacySessions.set(transport.sessionId, session);
       transport.onclose = () => {
@@ -260,8 +394,7 @@ export function createApp({
         "Connected legacy clients:",
         [...legacySessions].map(([sessionId, payload]) => ({
           sessionId,
-          user: jwt.decode(authentication.currentJwt)?.sub,
-          identity: payload.identity,
+          user: jwt.decode(payload.authentication.currentJwt)?.sub,
         }))
       );
 
@@ -283,7 +416,7 @@ export function createApp({
       }
 
       try {
-        await session.transport.handlePostMessage(req, res, req.body);
+        await session.transport.handlePostMessage(req, res);
       } catch (error) {
         if (!res.headersSent) {
           res
@@ -339,12 +472,17 @@ export function createApp({
   });
 
   const closeSessions = async () => {
+    const streamableServers = [...streamableSessions.values()].map(
+      ({ server }) => server
+    );
+    for (const sessionId of streamableSessions.keys()) {
+      deleteStreamableSession(sessionId);
+    }
     await Promise.all([
       ...[...legacySessions.values()].map(({ server }) => server.close()),
-      ...[...streamableSessions.values()].map(({ server }) => server.close()),
+      ...streamableServers.map((server) => server.close()),
     ]);
     legacySessions.clear();
-    streamableSessions.clear();
   };
 
   return {
@@ -385,7 +523,6 @@ async function loadExtraTools(): Promise<Array<ExtendedTool>> {
 }
 
 async function main() {
-  createAccessTokenStore();
   const { app, closeSessions } = createApp({
     extraTools: await loadExtraTools(),
   });
