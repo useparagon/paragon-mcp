@@ -22,6 +22,8 @@ import {
 import { loadCustomOpenApiTools } from "./openapi";
 import { getCustomTools } from "./custom-tools";
 
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+
 type Session<TTransport> = {
   transport: TTransport;
   server: Server;
@@ -238,9 +240,11 @@ export function createApp({
     const session = streamableSessions.get(sessionId);
     if (session?.authenticationTimeout) {
       clearTimeout(session.authenticationTimeout);
+      session.authenticationTimeout = undefined;
     }
     if (session?.idleTimeout) {
       clearTimeout(session.idleTimeout);
+      session.idleTimeout = undefined;
     }
     streamableSessions.delete(sessionId);
   };
@@ -266,10 +270,22 @@ export function createApp({
     if (expiresAt === undefined) {
       return;
     }
-    session.authenticationTimeout = setTimeout(() => {
+
+    const remainingMs = expiresAt - Date.now();
+    if (remainingMs <= 0) {
       expireStreamableSession(sessionId, session);
-    }, Math.max(0, expiresAt - Date.now()));
-    session.authenticationTimeout.unref();
+      return;
+    }
+
+    const authenticationTimeout = setTimeout(() => {
+      if (session.authenticationTimeout !== authenticationTimeout) {
+        return;
+      }
+      session.authenticationTimeout = undefined;
+      scheduleStreamableSessionAuthenticationExpiry(sessionId, session);
+    }, Math.min(remainingMs, MAX_TIMEOUT_MS));
+    session.authenticationTimeout = authenticationTimeout;
+    authenticationTimeout.unref();
   };
 
   const scheduleStreamableSessionExpiry = (
@@ -279,10 +295,16 @@ export function createApp({
     if (session.idleTimeout) {
       clearTimeout(session.idleTimeout);
     }
-    session.idleTimeout = setTimeout(() => {
+
+    const idleTimeout = setTimeout(() => {
+      if (session.idleTimeout !== idleTimeout || session.activeRequests > 0) {
+        return;
+      }
+      session.idleTimeout = undefined;
       expireStreamableSession(sessionId, session);
     }, sessionIdleTimeoutMs);
-    session.idleTimeout.unref();
+    session.idleTimeout = idleTimeout;
+    idleTimeout.unref();
   };
 
   app.use("/static", express.static("static"));

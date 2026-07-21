@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 
 import jwt from "jsonwebtoken";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 import { createApp } from "../src/index";
 
@@ -394,6 +395,83 @@ test("releases session capacity when the initializing token expires", async () =
     signToken("replacement"),
   );
   assert.equal(replacementResponse.status, 200);
+});
+
+test("chunks authentication expiry timers for long-lived tokens", async (t) => {
+  const setTimeoutMock = t.mock.method(globalThis, "setTimeout");
+  const server = await startServer();
+  await initializeSession(
+    server.baseUrl,
+    signToken("long-lived", 60 * 24 * 60 * 60),
+  );
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  const timeoutDelays = setTimeoutMock.mock.calls
+    .map((call) => call.arguments[1])
+    .filter(
+      (delay): delay is number =>
+        typeof delay === "number" && Number.isFinite(delay),
+    );
+  assert.ok(timeoutDelays.includes(2 ** 31 - 1));
+  assert.ok(timeoutDelays.every((delay) => delay <= 2 ** 31 - 1));
+  assert.equal(server.getSessionCounts().streamable, 1);
+});
+
+test("does not expire a session from a stale idle timer", async (t) => {
+  const originalConnect = Server.prototype.connect;
+  const setTimeoutMock = t.mock.method(globalThis, "setTimeout");
+  let connectedTransport: StreamableHTTPServerTransport | undefined;
+  let releaseRequest: () => void = () => {};
+
+  Server.prototype.connect = async function (transport) {
+    connectedTransport = transport as StreamableHTTPServerTransport;
+    await originalConnect.call(this, transport);
+  };
+
+  try {
+    const idleTimeoutMs = 123_456;
+    const server = await startServer(undefined, true, idleTimeoutMs);
+    const token = signToken("active-request");
+    const sessionId = await initializeSession(server.baseUrl, token);
+    assert.ok(connectedTransport);
+
+    const idleTimerCall = [...setTimeoutMock.mock.calls]
+      .reverse()
+      .find((call) => call.arguments[1] === idleTimeoutMs);
+    assert.ok(idleTimerCall);
+    const idleTimerCallback = idleTimerCall.arguments[0] as () => void;
+
+    const originalHandleRequest =
+      connectedTransport.handleRequest.bind(connectedTransport);
+    let notifyRequestStarted: () => void = () => {};
+    const requestStarted = new Promise<void>((resolve) => {
+      notifyRequestStarted = resolve;
+    });
+    const requestReleased = new Promise<void>((resolve) => {
+      releaseRequest = resolve;
+    });
+    connectedTransport.handleRequest = async (req, res, parsedBody) => {
+      notifyRequestStarted();
+      await requestReleased;
+      await originalHandleRequest(req, res, parsedBody);
+    };
+
+    const activeRequest = sendInitializedNotification(
+      server.baseUrl,
+      token,
+      sessionId,
+    );
+    await requestStarted;
+    idleTimerCallback();
+    assert.equal(server.getSessionCounts().streamable, 1);
+
+    releaseRequest();
+    const response = await activeRequest;
+    assert.equal(response.status, 202);
+  } finally {
+    releaseRequest();
+    Server.prototype.connect = originalConnect;
+  }
 });
 
 test("keeps concurrent Streamable HTTP sessions isolated", async () => {
