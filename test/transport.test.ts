@@ -417,6 +417,23 @@ test("chunks authentication expiry timers for long-lived tokens", async (t) => {
   assert.equal(server.getSessionCounts().streamable, 1);
 });
 
+test("chunks long idle expiry timers", async (t) => {
+  const setTimeoutMock = t.mock.method(globalThis, "setTimeout");
+  const server = await startServer(undefined, true, 60 * 24 * 60 * 60 * 1000);
+  await initializeSession(server.baseUrl, signToken("long-idle"));
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  const timeoutDelays = setTimeoutMock.mock.calls
+    .map((call) => call.arguments[1])
+    .filter(
+      (delay): delay is number =>
+        typeof delay === "number" && Number.isFinite(delay),
+    );
+  assert.ok(timeoutDelays.includes(2 ** 31 - 1));
+  assert.ok(timeoutDelays.every((delay) => delay <= 2 ** 31 - 1));
+  assert.equal(server.getSessionCounts().streamable, 1);
+});
+
 test("does not expire a session from a stale idle timer", async (t) => {
   const originalConnect = Server.prototype.connect;
   const setTimeoutMock = t.mock.method(globalThis, "setTimeout");
@@ -437,7 +454,14 @@ test("does not expire a session from a stale idle timer", async (t) => {
 
     const idleTimerCall = [...setTimeoutMock.mock.calls]
       .reverse()
-      .find((call) => call.arguments[1] === idleTimeoutMs);
+      .find((call) => {
+        const delay = call.arguments[1];
+        return (
+          typeof delay === "number" &&
+          delay <= idleTimeoutMs &&
+          delay > idleTimeoutMs - 1000
+        );
+      });
     assert.ok(idleTimerCall);
     const idleTimerCallback = idleTimerCall.arguments[0] as () => void;
 

@@ -296,15 +296,26 @@ export function createApp({
       clearTimeout(session.idleTimeout);
     }
 
-    const idleTimeout = setTimeout(() => {
-      if (session.idleTimeout !== idleTimeout || session.activeRequests > 0) {
+    const expiresAt = Date.now() + sessionIdleTimeoutMs;
+    const scheduleIdleTimeout = () => {
+      const remainingMs = expiresAt - Date.now();
+      if (remainingMs <= 0) {
+        expireStreamableSession(sessionId, session);
         return;
       }
-      session.idleTimeout = undefined;
-      expireStreamableSession(sessionId, session);
-    }, sessionIdleTimeoutMs);
-    session.idleTimeout = idleTimeout;
-    idleTimeout.unref();
+
+      const idleTimeout = setTimeout(() => {
+        if (session.idleTimeout !== idleTimeout || session.activeRequests > 0) {
+          return;
+        }
+        session.idleTimeout = undefined;
+        scheduleIdleTimeout();
+      }, Math.min(remainingMs, MAX_TIMEOUT_MS));
+      session.idleTimeout = idleTimeout;
+      idleTimeout.unref();
+    };
+
+    scheduleIdleTimeout();
   };
 
   app.use("/static", express.static("static"));
