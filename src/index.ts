@@ -49,7 +49,7 @@ type CreateAppOptions = {
 
 function createMcpServer(
   authentication: RequestAuthentication,
-  extraTools: Array<ExtendedTool>
+  extraTools: Array<ExtendedTool>,
 ): Server {
   const server = new Server({
     name: "paragon-mcp",
@@ -65,7 +65,7 @@ function createMcpServer(
 
 function authenticateRequest(
   req: Request,
-  res: Response
+  res: Response,
 ): RequestAuthentication | undefined {
   const authorization = req.headers.authorization;
   if (authorization) {
@@ -114,7 +114,9 @@ function getDefaultAllowedHosts(): string[] {
   try {
     allowedHosts.add(new URL(envs.MCP_SERVER_URL).host);
   } catch {
-    Logger.debug("MCP_SERVER_URL is not a valid URL; using explicit hosts only");
+    Logger.debug(
+      "MCP_SERVER_URL is not a valid URL; using explicit hosts only",
+    );
   }
 
   allowedHosts.add(`localhost:${envs.PORT}`);
@@ -128,7 +130,9 @@ function getDefaultAllowedOrigins(): string[] {
   try {
     allowedOrigins.add(new URL(envs.MCP_SERVER_URL).origin);
   } catch {
-    Logger.debug("MCP_SERVER_URL is not a valid URL; using explicit origins only");
+    Logger.debug(
+      "MCP_SERVER_URL is not a valid URL; using explicit origins only",
+    );
   }
 
   if (envs.NODE_ENV === "development") {
@@ -143,7 +147,7 @@ function validateMcpRequest(
   req: Request,
   res: Response,
   allowedHosts: string[],
-  allowedOrigins: string[]
+  allowedOrigins: string[],
 ): boolean {
   const host = req.headers.host;
   if (!host || !allowedHosts.includes(host)) {
@@ -164,7 +168,7 @@ function sendJsonRpcError(
   res: Response,
   status: number,
   code: number,
-  message: string
+  message: string,
 ): void {
   res.status(status).json({
     jsonrpc: "2.0",
@@ -177,7 +181,7 @@ function handleMcpJsonError(
   error: unknown,
   _req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): void {
   if (error instanceof SyntaxError) {
     sendJsonRpcError(res, 400, -32700, "Parse error");
@@ -217,11 +221,9 @@ export function createApp({
 }: CreateAppOptions = {}) {
   createAccessTokenStore();
   const app = express();
-  const legacySessions = new Map<
-    string,
-    Session<SSEServerTransport>
-  >();
+  const legacySessions = new Map<string, Session<SSEServerTransport>>();
   const streamableSessions = new Map<string, StreamableSession>();
+  let pendingStreamableSessions = 0;
 
   const deleteStreamableSession = (sessionId: string) => {
     const session = streamableSessions.get(sessionId);
@@ -233,7 +235,7 @@ export function createApp({
 
   const scheduleStreamableSessionExpiry = (
     sessionId: string,
-    session: StreamableSession
+    session: StreamableSession,
   ) => {
     if (session.idleTimeout) {
       clearTimeout(session.idleTimeout);
@@ -275,7 +277,7 @@ export function createApp({
         res,
         415,
         -32000,
-        "Unsupported Media Type: Content-Type must be application/json"
+        "Unsupported Media Type: Content-Type must be application/json",
       );
       return;
     }
@@ -284,6 +286,7 @@ export function createApp({
     const isInitializationRequest =
       !sessionId && req.method === "POST" && isInitializeRequest(req.body);
     let session: StreamableSession | undefined;
+    let releaseStreamableSessionReservation: (() => void) | undefined;
 
     if (sessionId) {
       session = streamableSessions.get(sessionId);
@@ -296,7 +299,10 @@ export function createApp({
         return;
       }
     } else if (isInitializationRequest) {
-      if (streamableSessions.size >= maxStreamableSessions) {
+      if (
+        streamableSessions.size + pendingStreamableSessions >=
+        maxStreamableSessions
+      ) {
         sendJsonRpcError(res, 503, -32000, "Session capacity reached");
         return;
       }
@@ -305,6 +311,7 @@ export function createApp({
         sessionIdGenerator: randomUUID,
         onsessioninitialized: (initializedSessionId) => {
           streamableSessions.set(initializedSessionId, session!);
+          releaseStreamableSessionReservation?.();
         },
         onsessionclosed: (closedSessionId) => {
           deleteStreamableSession(closedSessionId);
@@ -317,6 +324,15 @@ export function createApp({
         authentication,
         activeRequests: 0,
       };
+      pendingStreamableSessions += 1;
+      let reservationReleased = false;
+      releaseStreamableSessionReservation = () => {
+        if (reservationReleased) {
+          return;
+        }
+        reservationReleased = true;
+        pendingStreamableSessions -= 1;
+      };
       transport.onclose = () => {
         if (transport.sessionId) {
           deleteStreamableSession(transport.sessionId);
@@ -326,16 +342,20 @@ export function createApp({
         await server.connect(transport);
       } catch (error) {
         Logger.debug("Error connecting Streamable HTTP transport:", error);
+        releaseStreamableSessionReservation();
+        try {
+          await server.close();
+        } catch (closeError) {
+          Logger.debug(
+            "Error closing failed Streamable HTTP transport:",
+            closeError,
+          );
+        }
         sendJsonRpcError(res, 500, -32603, "Internal server error");
         return;
       }
     } else {
-      sendJsonRpcError(
-        res,
-        400,
-        -32000,
-        "Mcp-Session-Id header is required"
-      );
+      sendJsonRpcError(res, 400, -32000, "Mcp-Session-Id header is required");
       return;
     }
 
@@ -359,6 +379,7 @@ export function createApp({
       }
       Logger.debug("Error handling Streamable HTTP request:", error);
     } finally {
+      releaseStreamableSessionReservation?.();
       session.activeRequests -= 1;
       const initializedSessionId = session.transport.sessionId;
       if (
@@ -386,7 +407,7 @@ export function createApp({
         authentication,
       };
       legacySessions.set(transport.sessionId, session);
-      transport.onclose = () => {
+      server.onclose = () => {
         legacySessions.delete(transport.sessionId);
       };
 
@@ -395,7 +416,7 @@ export function createApp({
         [...legacySessions].map(([sessionId, payload]) => ({
           sessionId,
           user: jwt.decode(payload.authentication.currentJwt)?.sub,
-        }))
+        })),
       );
 
       await server.connect(transport);
@@ -406,9 +427,7 @@ export function createApp({
         typeof req.query.sessionId === "string"
           ? req.query.sessionId
           : undefined;
-      const session = sessionId
-        ? legacySessions.get(sessionId)
-        : undefined;
+      const session = sessionId ? legacySessions.get(sessionId) : undefined;
 
       if (!session) {
         res.status(404).json({ error: "No transport found for sessionId" });
@@ -461,7 +480,7 @@ export function createApp({
         <head>
           <script src="${envs.CONNECT_SDK_CDN_URL}"></script>
           <script id="token-info" type="application/json">${JSON.stringify(
-            tokenInfo
+            tokenInfo,
           )}</script>
           <script type="text/javascript" src="/static/js/index.js"></script>
         </head>
@@ -473,7 +492,7 @@ export function createApp({
 
   const closeSessions = async () => {
     const streamableServers = [...streamableSessions.values()].map(
-      ({ server }) => server
+      ({ server }) => server,
     );
     for (const sessionId of streamableSessions.keys()) {
       deleteStreamableSession(sessionId);
@@ -511,8 +530,8 @@ async function loadExtraTools(): Promise<Array<ExtendedTool>> {
             return envs.LIMIT_TO_INTEGRATIONS.includes(integration.type);
           }
           return true;
-        })
-      )
+        }),
+      ),
     );
   }
   if (envs.ENABLE_CUSTOM_TOOL) {

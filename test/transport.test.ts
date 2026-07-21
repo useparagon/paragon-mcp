@@ -6,6 +6,7 @@ import { afterEach, test } from "node:test";
 import { promisify } from "node:util";
 
 import jwt from "jsonwebtoken";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 
 import { createApp } from "../src/index";
 
@@ -24,7 +25,8 @@ function signToken(subject: string): string {
 async function startServer(
   enableLegacySse?: boolean,
   allowListeningHost = true,
-  sessionIdleTimeoutMs = 30 * 60 * 1000
+  sessionIdleTimeoutMs = 30 * 60 * 1000,
+  maxStreamableSessions = 1000,
 ) {
   const allowedHosts: string[] = [];
   const instance = createApp({
@@ -32,13 +34,14 @@ async function startServer(
     allowedHosts,
     allowedOrigins: [],
     sessionIdleTimeoutMs,
+    maxStreamableSessions,
   });
   const server = await new Promise<ReturnType<typeof instance.app.listen>>(
     (resolve) => {
       const listeningServer = instance.app.listen(0, "127.0.0.1", () => {
         resolve(listeningServer);
       });
-    }
+    },
   );
   const address = server.address() as AddressInfo;
   if (allowListeningHost) {
@@ -66,8 +69,8 @@ async function startServer(
   return runningServer;
 }
 
-async function initializeSession(baseUrl: string, token: string) {
-  const response = await fetch(`${baseUrl}/mcp`, {
+function requestSessionInitialization(baseUrl: string, token: string) {
+  return fetch(`${baseUrl}/mcp`, {
     method: "POST",
     headers: {
       Accept: "application/json, text/event-stream",
@@ -88,6 +91,10 @@ async function initializeSession(baseUrl: string, token: string) {
       },
     }),
   });
+}
+
+async function initializeSession(baseUrl: string, token: string) {
+  const response = await requestSessionInitialization(baseUrl, token);
   const responseBody = await response.text();
   assert.equal(response.status, 200, responseBody);
   assert.match(responseBody, /"serverInfo"/);
@@ -97,10 +104,23 @@ async function initializeSession(baseUrl: string, token: string) {
   return sessionId;
 }
 
+async function waitFor(
+  predicate: () => boolean,
+  timeoutMs = 1000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      assert.fail("Timed out waiting for condition");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 async function sendInitializedNotification(
   baseUrl: string,
   token: string,
-  sessionId: string
+  sessionId: string,
 ) {
   return fetch(`${baseUrl}/mcp`, {
     method: "POST",
@@ -121,7 +141,7 @@ async function sendInitializedNotification(
 async function terminateSession(
   baseUrl: string,
   token: string,
-  sessionId: string
+  sessionId: string,
 ) {
   return fetch(`${baseUrl}/mcp`, {
     method: "DELETE",
@@ -150,7 +170,7 @@ test("handles the stateful Streamable HTTP session lifecycle", async () => {
   const initializedResponse = await sendInitializedNotification(
     server.baseUrl,
     token,
-    sessionId
+    sessionId,
   );
   assert.equal(initializedResponse.status, 202);
 
@@ -165,13 +185,16 @@ test("handles the stateful Streamable HTTP session lifecycle", async () => {
     signal: controller.signal,
   });
   assert.equal(streamResponse.status, 200);
-  assert.match(streamResponse.headers.get("content-type") ?? "", /text\/event-stream/);
+  assert.match(
+    streamResponse.headers.get("content-type") ?? "",
+    /text\/event-stream/,
+  );
   controller.abort();
 
   const deleteResponse = await terminateSession(
     server.baseUrl,
     token,
-    sessionId
+    sessionId,
   );
   assert.equal(deleteResponse.status, 200);
   assert.deepEqual(server.getSessionCounts(), {
@@ -293,14 +316,14 @@ test("authenticates every request and isolates session owners", async () => {
   const wrongOwnerResponse = await sendInitializedNotification(
     server.baseUrl,
     otherToken,
-    sessionId
+    sessionId,
   );
   assert.equal(wrongOwnerResponse.status, 403);
 
   const rotatedTokenResponse = await sendInitializedNotification(
     server.baseUrl,
     rotatedOwnerToken,
-    sessionId
+    sessionId,
   );
   assert.equal(rotatedTokenResponse.status, 403);
 
@@ -334,8 +357,92 @@ test("keeps concurrent Streamable HTTP sessions isolated", async () => {
   ]);
   assert.deepEqual(
     responses.map((response) => response.status),
-    [200, 200]
+    [200, 200],
   );
+});
+
+test("enforces the Streamable HTTP session limit during initialization", async () => {
+  const originalConnect = Server.prototype.connect;
+  let releaseFirstConnect: () => void = () => {};
+  const firstConnectReleased = new Promise<void>((resolve) => {
+    releaseFirstConnect = resolve;
+  });
+  let notifyFirstConnectStarted: () => void = () => {};
+  const firstConnectStarted = new Promise<void>((resolve) => {
+    notifyFirstConnectStarted = resolve;
+  });
+  let connectCalls = 0;
+
+  Server.prototype.connect = async function (transport) {
+    connectCalls += 1;
+    if (connectCalls === 1) {
+      notifyFirstConnectStarted();
+      await firstConnectReleased;
+    }
+    await originalConnect.call(this, transport);
+  };
+
+  try {
+    const server = await startServer(undefined, true, 30 * 60 * 1000, 1);
+    const firstRequest = requestSessionInitialization(
+      server.baseUrl,
+      signToken("first"),
+    );
+    await firstConnectStarted;
+
+    const secondResponse = await requestSessionInitialization(
+      server.baseUrl,
+      signToken("second"),
+    );
+    releaseFirstConnect();
+    const firstResponse = await firstRequest;
+
+    assert.equal(firstResponse.status, 200);
+    assert.equal(secondResponse.status, 503);
+    assert.equal(connectCalls, 1);
+    assert.equal(server.getSessionCounts().streamable, 1);
+  } finally {
+    releaseFirstConnect();
+    Server.prototype.connect = originalConnect;
+  }
+});
+
+test("closes Streamable HTTP resources when connect fails", async () => {
+  const originalConnect = Server.prototype.connect;
+  let serverCloseCalls = 0;
+  let transportCloseCalls = 0;
+
+  Server.prototype.connect = async function (transport) {
+    const originalServerClose = this.close.bind(this);
+    this.close = async () => {
+      serverCloseCalls += 1;
+      await originalServerClose();
+    };
+    const originalTransportClose = transport.close.bind(transport);
+    transport.close = async () => {
+      transportCloseCalls += 1;
+      await originalTransportClose();
+    };
+    transport.start = async () => {
+      throw new Error("forced connect failure");
+    };
+    await originalConnect.call(this, transport);
+  };
+
+  try {
+    const server = await startServer();
+    const response = await requestSessionInitialization(
+      server.baseUrl,
+      signToken("connect-failure"),
+    );
+
+    assert.equal(response.status, 500);
+    assert.equal(serverCloseCalls, 1);
+    assert.equal(transportCloseCalls, 1);
+    assert.equal(server.getSessionCounts().streamable, 0);
+  } finally {
+    Server.prototype.connect = originalConnect;
+  }
 });
 
 test("expires abandoned Streamable HTTP sessions", async () => {
@@ -360,7 +467,10 @@ test("serves legacy SSE by default", async () => {
   });
 
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /text\/event-stream/);
+  assert.match(
+    response.headers.get("content-type") ?? "",
+    /text\/event-stream/,
+  );
   const reader = response.body!.getReader();
   const firstEvent = await reader.read();
   assert.match(new TextDecoder().decode(firstEvent.value), /event: endpoint/);
@@ -369,6 +479,7 @@ test("serves legacy SSE by default", async () => {
     streamable: 0,
   });
   controller.abort();
+  await waitFor(() => server.getSessionCounts().legacy === 0);
 });
 
 test("removes legacy routes when SSE is explicitly disabled", async () => {
@@ -389,7 +500,7 @@ test("removes legacy routes when SSE is explicitly disabled", async () => {
         "Content-Type": "application/json",
       },
       body: "{}",
-    }
+    },
   );
 
   assert.equal(sseResponse.status, 404);
@@ -413,7 +524,7 @@ test("parses ENABLE_LEGACY_SSE=false without boolean coercion", async () => {
         ENABLE_LEGACY_SSE: "false",
         MCP_SERVER_URL: "",
       },
-    }
+    },
   );
   assert.deepEqual(JSON.parse(stdout), {
     legacy: false,
