@@ -13,11 +13,11 @@ import { createApp } from "../src/index";
 const activeServers = new Set<Awaited<ReturnType<typeof startServer>>>();
 const execFileAsync = promisify(execFile);
 
-function signToken(subject: string): string {
+function signToken(subject: string, expiresInSeconds = 60 * 60): string {
   return jwt.sign({}, process.env.SIGNING_KEY!, {
     algorithm: "RS256",
     subject,
-    expiresIn: "1h",
+    expiresIn: expiresInSeconds,
     jwtid: randomUUID(),
   });
 }
@@ -334,6 +334,66 @@ test("authenticates every request and isolates session owners", async () => {
     },
   });
   assert.equal(invalidTokenResponse.status, 401);
+});
+
+test("lets owners terminate sessions after rotation and rejects expired tokens", async () => {
+  const server = await startServer(undefined, true, 30 * 60 * 1000, 1);
+  const originalToken = signToken("owner");
+  const rotatedToken = signToken("owner");
+  const expiredToken = signToken("owner", -1);
+  const originalSessionId = await initializeSession(
+    server.baseUrl,
+    originalToken,
+  );
+
+  const otherUserDeleteResponse = await terminateSession(
+    server.baseUrl,
+    signToken("other"),
+    originalSessionId,
+  );
+  assert.equal(otherUserDeleteResponse.status, 403);
+  assert.equal(server.getSessionCounts().streamable, 1);
+
+  const expiredDeleteResponse = await terminateSession(
+    server.baseUrl,
+    expiredToken,
+    originalSessionId,
+  );
+  assert.equal(expiredDeleteResponse.status, 401);
+  assert.equal(server.getSessionCounts().streamable, 1);
+
+  const rotatedDeleteResponse = await terminateSession(
+    server.baseUrl,
+    rotatedToken,
+    originalSessionId,
+  );
+  assert.equal(rotatedDeleteResponse.status, 200);
+  assert.equal(server.getSessionCounts().streamable, 0);
+
+  const replacementResponse = await requestSessionInitialization(
+    server.baseUrl,
+    signToken("replacement"),
+  );
+  assert.equal(replacementResponse.status, 200);
+});
+
+test("releases session capacity when the initializing token expires", async () => {
+  const server = await startServer(undefined, true, 30 * 60 * 1000, 1);
+  await initializeSession(server.baseUrl, signToken("expiring", 1));
+
+  const capacityResponse = await requestSessionInitialization(
+    server.baseUrl,
+    signToken("replacement"),
+  );
+  assert.equal(capacityResponse.status, 503);
+
+  await waitFor(() => server.getSessionCounts().streamable === 0, 1500);
+
+  const replacementResponse = await requestSessionInitialization(
+    server.baseUrl,
+    signToken("replacement"),
+  );
+  assert.equal(replacementResponse.status, 200);
 });
 
 test("keeps concurrent Streamable HTTP sessions isolated", async () => {

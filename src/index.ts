@@ -30,12 +30,15 @@ type Session<TTransport> = {
 
 type StreamableSession = Session<StreamableHTTPServerTransport> & {
   activeRequests: number;
+  authenticationTimeout?: ReturnType<typeof setTimeout>;
   idleTimeout?: ReturnType<typeof setTimeout>;
 };
 
 type RequestAuthentication = {
   currentJwt: string;
+  expiresAt?: number;
   identity: string;
+  principalIdentity: string;
 };
 
 type CreateAppOptions = {
@@ -83,8 +86,13 @@ function authenticateRequest(
         if (typeof payload !== "string" && typeof payload.sub === "string") {
           return {
             currentJwt,
+            expiresAt:
+              typeof payload.exp === "number" ? payload.exp * 1000 : undefined,
             identity: `bearer:${createHash("sha256")
               .update(currentJwt)
+              .digest("hex")}`,
+            principalIdentity: `bearer-subject:${createHash("sha256")
+              .update(payload.sub)
               .digest("hex")}`,
           };
         }
@@ -102,6 +110,7 @@ function authenticateRequest(
     return {
       currentJwt: signJwt({ userId: req.query.user }),
       identity: `development:${req.query.user}`,
+      principalIdentity: `development:${req.query.user}`,
     };
   }
 
@@ -227,10 +236,40 @@ export function createApp({
 
   const deleteStreamableSession = (sessionId: string) => {
     const session = streamableSessions.get(sessionId);
+    if (session?.authenticationTimeout) {
+      clearTimeout(session.authenticationTimeout);
+    }
     if (session?.idleTimeout) {
       clearTimeout(session.idleTimeout);
     }
     streamableSessions.delete(sessionId);
+  };
+
+  const expireStreamableSession = (
+    sessionId: string,
+    session: StreamableSession,
+  ) => {
+    if (streamableSessions.get(sessionId) !== session) {
+      return;
+    }
+    deleteStreamableSession(sessionId);
+    void session.server.close().catch((error) => {
+      Logger.debug("Error closing expired Streamable HTTP session:", error);
+    });
+  };
+
+  const scheduleStreamableSessionAuthenticationExpiry = (
+    sessionId: string,
+    session: StreamableSession,
+  ) => {
+    const expiresAt = session.authentication.expiresAt;
+    if (expiresAt === undefined) {
+      return;
+    }
+    session.authenticationTimeout = setTimeout(() => {
+      expireStreamableSession(sessionId, session);
+    }, Math.max(0, expiresAt - Date.now()));
+    session.authenticationTimeout.unref();
   };
 
   const scheduleStreamableSessionExpiry = (
@@ -241,13 +280,7 @@ export function createApp({
       clearTimeout(session.idleTimeout);
     }
     session.idleTimeout = setTimeout(() => {
-      if (streamableSessions.get(sessionId) !== session) {
-        return;
-      }
-      streamableSessions.delete(sessionId);
-      void session.server.close().catch((error) => {
-        Logger.debug("Error closing expired Streamable HTTP session:", error);
-      });
+      expireStreamableSession(sessionId, session);
     }, sessionIdleTimeoutMs);
     session.idleTimeout.unref();
   };
@@ -300,7 +333,13 @@ export function createApp({
         sendJsonRpcError(res, 404, -32001, "Session not found");
         return;
       }
-      if (session.authentication.identity !== authentication.identity) {
+      const matchesSessionToken =
+        session.authentication.identity === authentication.identity;
+      const terminatesOwnedSession =
+        req.method === "DELETE" &&
+        session.authentication.principalIdentity ===
+          authentication.principalIdentity;
+      if (!matchesSessionToken && !terminatesOwnedSession) {
         res.status(403).send("Forbidden");
         return;
       }
@@ -317,6 +356,10 @@ export function createApp({
         sessionIdGenerator: randomUUID,
         onsessioninitialized: (initializedSessionId) => {
           streamableSessions.set(initializedSessionId, session!);
+          scheduleStreamableSessionAuthenticationExpiry(
+            initializedSessionId,
+            session!,
+          );
           releaseStreamableSessionReservation?.();
         },
         onsessionclosed: (closedSessionId) => {

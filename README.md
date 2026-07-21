@@ -150,13 +150,13 @@ For testing, you can one-click deploy the server through Heroku.
 
 ### Authorization
 
-The `/mcp` endpoint accepts an `Authorization` header with a Paragon User Token as the Bearer token. Streamable HTTP clients must retain and send the same token used to initialize the session on every subsequent `GET`, `POST`, or `DELETE` request. If the token is rotated, initialize a new session. The legacy `GET /sse` endpoint also accepts this header when legacy SSE is enabled.
+The `/mcp` endpoint accepts an `Authorization` header with a Paragon User Token as the Bearer token. Streamable HTTP clients must retain and send the same token used to initialize the session on every subsequent `GET` or `POST` request. If the token is rotated, initialize a new session. A client may terminate its old session with `DELETE` using a rotated, unexpired token for the same user. The legacy `GET /sse` endpoint also accepts this header when legacy SSE is enabled.
 
 The Paragon User Token is an RS256-encoded JWT that is verified using the public key stored by Paragon. Your MCP client (e.g. your application server or the service running your AI agent) will sign the User Token using the matching private key generated in the Paragon dashboard, which only your server has access to.
 
 This allows the MCP to validate the authenticity of the requesting user using the JWT signature and public key. Once authenticated, the MCP will associate the user ID encoded in the JWT with the active MCP session.
 
-Streamable HTTP sessions are stored in memory and expire after 30 minutes of inactivity by default. Clients must initialize a new session after expiration or a server restart. Deployments with multiple server instances must use session affinity so requests bearing the same `Mcp-Session-Id` reach the instance that created it.
+Streamable HTTP sessions are stored in memory and close when their initializing token expires or after 30 minutes of inactivity by default. Clients must initialize a new session after expiration or a server restart. Deployments with multiple server instances must use session affinity so requests bearing the same `Mcp-Session-Id` reach the instance that created it.
 
 ## Adding Custom Actions with OpenAPI
 
