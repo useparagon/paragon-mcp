@@ -253,10 +253,7 @@ export function createApp({
   };
 
   app.use("/static", express.static("static"));
-  app.use("/mcp", express.json({ limit: "4mb" }));
-  app.use("/mcp", handleMcpJsonError);
-
-  app.all("/mcp", async (req, res) => {
+  app.use("/mcp", (req, res, next) => {
     if (!["GET", "POST", "DELETE"].includes(req.method)) {
       res.set("Allow", "GET, POST, DELETE");
       res.sendStatus(405);
@@ -271,6 +268,15 @@ export function createApp({
     if (!authentication) {
       return;
     }
+
+    res.locals.authentication = authentication;
+    next();
+  });
+  app.use("/mcp", express.json({ limit: "4mb" }));
+  app.use("/mcp", handleMcpJsonError);
+
+  app.all("/mcp", async (req, res) => {
+    const authentication = res.locals.authentication as RequestAuthentication;
 
     if (req.method === "POST" && !req.is("application/json")) {
       sendJsonRpcError(
@@ -333,7 +339,7 @@ export function createApp({
         reservationReleased = true;
         pendingStreamableSessions -= 1;
       };
-      transport.onclose = () => {
+      server.onclose = () => {
         if (transport.sessionId) {
           deleteStreamableSession(transport.sessionId);
         }
@@ -419,7 +425,26 @@ export function createApp({
         })),
       );
 
-      await server.connect(transport);
+      try {
+        await server.connect(transport);
+      } catch (error) {
+        Logger.debug("Error connecting legacy SSE transport:", error);
+        legacySessions.delete(transport.sessionId);
+        if (!res.headersSent) {
+          res.status(500);
+        }
+        try {
+          await server.close();
+        } catch (closeError) {
+          Logger.debug(
+            "Error closing failed legacy SSE transport:",
+            closeError,
+          );
+        }
+        if (!res.writableEnded) {
+          res.end();
+        }
+      }
     });
 
     app.post("/messages", async (req, res) => {

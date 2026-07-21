@@ -445,6 +445,28 @@ test("closes Streamable HTTP resources when connect fails", async () => {
   }
 });
 
+test("removes Streamable HTTP sessions when the transport closes", async () => {
+  const originalConnect = Server.prototype.connect;
+  let connectedTransport: Parameters<Server["connect"]>[0] | undefined;
+
+  Server.prototype.connect = async function (transport) {
+    connectedTransport = transport;
+    await originalConnect.call(this, transport);
+  };
+
+  try {
+    const server = await startServer();
+    await initializeSession(server.baseUrl, signToken("closed-transport"));
+    assert.equal(server.getSessionCounts().streamable, 1);
+    assert.ok(connectedTransport);
+
+    await connectedTransport.close();
+    await waitFor(() => server.getSessionCounts().streamable === 0);
+  } finally {
+    Server.prototype.connect = originalConnect;
+  }
+});
+
 test("expires abandoned Streamable HTTP sessions", async () => {
   const server = await startServer(undefined, true, 20);
   const token = signToken("idle-user");
@@ -480,6 +502,45 @@ test("serves legacy SSE by default", async () => {
   });
   controller.abort();
   await waitFor(() => server.getSessionCounts().legacy === 0);
+});
+
+test("cleans up legacy SSE resources when connect fails", async () => {
+  const originalConnect = Server.prototype.connect;
+  let serverCloseCalls = 0;
+  let transportCloseCalls = 0;
+
+  Server.prototype.connect = async function (transport) {
+    const originalServerClose = this.close.bind(this);
+    this.close = async () => {
+      serverCloseCalls += 1;
+      await originalServerClose();
+    };
+    const originalTransportClose = transport.close.bind(transport);
+    transport.close = async () => {
+      transportCloseCalls += 1;
+      await originalTransportClose();
+    };
+    transport.start = async () => {
+      throw new Error("forced legacy connect failure");
+    };
+    await originalConnect.call(this, transport);
+  };
+
+  try {
+    const server = await startServer();
+    const response = await fetch(`${server.baseUrl}/sse`, {
+      headers: {
+        Authorization: `Bearer ${signToken("legacy-connect-failure")}`,
+      },
+    });
+
+    assert.equal(response.status, 500);
+    assert.equal(serverCloseCalls, 1);
+    assert.equal(transportCloseCalls, 1);
+    assert.equal(server.getSessionCounts().legacy, 0);
+  } finally {
+    Server.prototype.connect = originalConnect;
+  }
 });
 
 test("removes legacy routes when SSE is explicitly disabled", async () => {
@@ -543,7 +604,7 @@ test("rejects untrusted hosts and origins", async () => {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: "{}",
+    body: "{",
   });
   assert.equal(hostResponse.status, 403);
 
@@ -556,9 +617,22 @@ test("rejects untrusted hosts and origins", async () => {
       "Content-Type": "application/json",
       Origin: "https://untrusted.example",
     },
-    body: "{}",
+    body: "{",
   });
   assert.equal(originResponse.status, 403);
+});
+
+test("authenticates MCP requests before parsing JSON bodies", async () => {
+  const server = await startServer();
+  const response = await fetch(`${server.baseUrl}/mcp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: "{",
+  });
+
+  assert.equal(response.status, 401);
 });
 
 test("keeps the setup endpoint behavior unchanged", async () => {
