@@ -15,7 +15,10 @@ import { OpenAPIV3 } from "openapi-types";
 
 export const envs = z
   .object({
-    MCP_SERVER_URL: z.string().default(`http://localhost:3001`),
+    MCP_SERVER_URL: z
+      .string()
+      .default("http://localhost:3001")
+      .transform((value) => value || "http://localhost:3001"),
     PROJECT_ID: z.string(),
     SIGNING_KEY: z.string().optional(),
     SIGNING_KEY_PATH: z.string().optional(),
@@ -30,6 +33,34 @@ export const envs = z
     ENABLE_CUSTOM_OPENAPI_ACTIONS: z.boolean({ coerce: true }).default(false),
     ENABLE_PROXY_API_TOOL: z.boolean({ coerce: true }).default(false),
     ENABLE_CUSTOM_TOOL: z.boolean({ coerce: true }).default(false),
+    ENABLE_LEGACY_SSE: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((value) => value === "true"),
+    MCP_ALLOWED_HOSTS: z
+      .string()
+      .default("")
+      .transform((value) =>
+        value
+          .split(",")
+          .map((host) => host.trim())
+          .filter(Boolean)
+      ),
+    MCP_ALLOWED_ORIGINS: z
+      .string()
+      .default("")
+      .transform((value) =>
+        value
+          .split(",")
+          .map((origin) => origin.trim())
+          .filter(Boolean)
+      ),
+    MCP_SESSION_IDLE_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(30 * 60 * 1000),
+    MCP_MAX_SESSIONS: z.coerce.number().int().positive().default(1000),
     LIMIT_TO_INTEGRATIONS: z
       .string()
       .default("")

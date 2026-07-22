@@ -67,7 +67,12 @@ Set up the environment variables as described below:
   - `ZEUS_BASE_URL`: Paragon API base URL (default: https://zeus.useparagon.com)
   - `PROXY_BASE_URL`: Paragon Proxy API base URL (default: https://proxy.useparagon.com)
   - `NODE_ENV`: Node environment (default: `development`)
-    <sub>**Note**: When `NODE_ENV` is set to `development`, the `/sse` parameter accepts any user ID in the `?user=` query parameter to automatically authorize as a specific user while testing locally.</sub>
+    <sub>**Note**: When `NODE_ENV` is set to `development`, the `/mcp` and `/sse` endpoints accept any user ID in the `?user=` query parameter to automatically authorize as a specific user while testing locally.</sub>
+  - `ENABLE_LEGACY_SSE`: Set to `false` to remove the deprecated `/sse` and `/messages` endpoints (default: `true`)
+  - `MCP_ALLOWED_HOSTS`: Additional comma-separated `Host` header values accepted by `/mcp`. The host from `MCP_SERVER_URL` is allowed automatically.
+  - `MCP_ALLOWED_ORIGINS`: Additional comma-separated `Origin` header values accepted by `/mcp`. The origin from `MCP_SERVER_URL` is allowed automatically.
+  - `MCP_SESSION_IDLE_TIMEOUT_MS`: Time in milliseconds before an inactive Streamable HTTP session is closed (default: `1800000`)
+  - `MCP_MAX_SESSIONS`: Maximum number of concurrent Streamable HTTP sessions per server instance (default: `1000`)
 
 ### Running the Server
 
@@ -91,7 +96,7 @@ To use this MCP server with Cursor, add the following to your Cursor configurati
 {
   "mcpServers": {
     "mcp-actionkit-dev": {
-      "url": "http://localhost:3001/sse?user=[user-id]"
+      "url": "http://localhost:3001/mcp?user=[user-id]"
     }
   }
 }
@@ -111,7 +116,7 @@ To use this MCP server with Claude, add the following to your Claude configurati
   "mcpServers": {
     "actionkit": {
       "command": "npx",
-      "args": ["mcp-remote", "http://localhost:3001/sse?user=[user-id]"]
+      "args": ["mcp-remote", "http://localhost:3001/mcp?user=[user-id]"]
     }
   }
 }
@@ -121,6 +126,12 @@ Replace:
 
 - `http://localhost:3001` with your server's domain
 - `user-id` with the ID for the Connected User to use with ActionKit (this parameter only available in development mode)
+
+For production clients, send the Paragon User Token as an `Authorization: Bearer <token>` header on every MCP request.
+
+### Legacy SSE clients
+
+Existing clients can continue using `GET /sse` and `POST /messages` while `ENABLE_LEGACY_SSE` is `true`. To migrate, update the configured URL from `/sse` to `/mcp` and use a client that supports Streamable HTTP before disabling legacy SSE.
 
 ## Deploying the MCP Server
 The Paragon MCP server can be completely **self-hosted**. Deploy the MCP Server via Docker in any 
@@ -132,17 +143,20 @@ For testing, you can one-click deploy the server through Heroku.
 
 ## API Endpoints
 
-- `GET /sse`: Establishes SSE connection for MCP communication
-- `POST /messages`: Handles MCP message processing
+- `GET`, `POST`, and `DELETE /mcp`: Handles stateful Streamable HTTP communication
+- `GET /sse`: Establishes a deprecated legacy SSE connection when `ENABLE_LEGACY_SSE=true`
+- `POST /messages`: Handles deprecated legacy SSE messages when `ENABLE_LEGACY_SSE=true`
 - `GET /setup`: Handles integration setup flow
 
 ### Authorization
 
-The `GET /sse` endpoint (base URL for the MCP using the SSE transport) accepts an `Authorization` header with a Paragon User Token as the Bearer token.
+The `/mcp` endpoint accepts an `Authorization` header with a Paragon User Token as the Bearer token. Streamable HTTP clients must retain and send the same token used to initialize the session on every subsequent `GET` or `POST` request. If the token is rotated, initialize a new session. A client may terminate its old session with `DELETE` using a rotated, unexpired token for the same user. The legacy `GET /sse` endpoint also accepts this header when legacy SSE is enabled.
 
 The Paragon User Token is an RS256-encoded JWT that is verified using the public key stored by Paragon. Your MCP client (e.g. your application server or the service running your AI agent) will sign the User Token using the matching private key generated in the Paragon dashboard, which only your server has access to.
 
 This allows the MCP to validate the authenticity of the requesting user using the JWT signature and public key. Once authenticated, the MCP will associate the user ID encoded in the JWT with the active MCP session.
+
+Streamable HTTP sessions are stored in memory and close when their initializing token expires or after 30 minutes of inactivity by default. Clients must initialize a new session after expiration or a server restart. Deployments with multiple server instances must use session affinity so requests bearing the same `Mcp-Session-Id` reach the instance that created it.
 
 ## Adding Custom Actions with OpenAPI
 
