@@ -1,6 +1,7 @@
 import { z } from "zod";
 import jwt from "jsonwebtoken";
 import fs from "fs";
+import type { ContentBlock } from "@modelcontextprotocol/sdk/types.js";
 
 import { UserNotConnectedError } from "./errors";
 import {
@@ -145,28 +146,84 @@ export async function performOpenApiAction(
   return await response.text();
 }
 
+const JSON_MEDIA_TYPE = "application/json";
+const JSON_MEDIA_SUFFIX = "+json";
+const TEXT_MEDIA_PREFIX = "text/";
+const IMAGE_MEDIA_PREFIX = "image/";
+const AUDIO_MEDIA_PREFIX = "audio/";
+const DEFAULT_BINARY_MEDIA_TYPE = "application/octet-stream";
+const BASE64_ENCODING = "base64";
+
+function readMediaType(response: Response): string {
+  const header = response.headers.get("content-type") ?? "";
+  return (header.split(";")[0] ?? "").trim().toLowerCase();
+}
+
+function isJsonMediaType(mediaType: string): boolean {
+  return (
+    mediaType === JSON_MEDIA_TYPE || mediaType.endsWith(JSON_MEDIA_SUFFIX)
+  );
+}
+
+/**
+ * Turns an ActionKit HTTP response into MCP tool content, based on its
+ * Content-Type. JSON and text bodies stay human-readable; images/audio use
+ * their native content blocks; any other binary body (e.g. a downloaded
+ * PDF) is base64-encoded into an embedded resource. `resourceUri` only
+ * labels that resource for the client - it isn't resolvable via
+ * resources/read.
+ */
+export async function actionResponseToToolContent(
+  response: Response,
+  resourceUri: string
+): Promise<ContentBlock[]> {
+  const mediaType = readMediaType(response);
+
+  if (isJsonMediaType(mediaType)) {
+    const value = await response.json();
+    return [{ type: "text", text: JSON.stringify(value) }];
+  }
+
+  if (mediaType.startsWith(TEXT_MEDIA_PREFIX)) {
+    return [{ type: "text", text: await response.text() }];
+  }
+
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const data = bytes.toString(BASE64_ENCODING);
+  const mimeType = mediaType || DEFAULT_BINARY_MEDIA_TYPE;
+
+  if (mimeType.startsWith(IMAGE_MEDIA_PREFIX)) {
+    return [{ type: "image", data, mimeType }];
+  }
+
+  if (mimeType.startsWith(AUDIO_MEDIA_PREFIX)) {
+    return [{ type: "audio", data, mimeType }];
+  }
+
+  return [{ type: "resource", resource: { uri: resourceUri, mimeType, blob: data } }];
+}
+
 export async function performAction(
   actionName: string,
   actionParams: any,
   jwt: string
-): Promise<any | null> {
+): Promise<ContentBlock[]> {
   console.log(`DEBUG:`, "Running action", actionName, actionParams);
-  try {
-    const url = `${envs.ACTIONKIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${jwt}`,
-      },
-      body: JSON.stringify({ action: actionName, parameters: actionParams }),
-    });
-    await handleResponseErrors(response);
+  const url = `${envs.ACTIONKIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ action: actionName, parameters: actionParams }),
+  });
+  await handleResponseErrors(response);
 
-    return await response.json();
-  } catch (error) {
-    throw error;
-  }
+  return await actionResponseToToolContent(
+    response,
+    `actionkit://action/${actionName}`
+  );
 }
 
 export function getSigningKey(): string {

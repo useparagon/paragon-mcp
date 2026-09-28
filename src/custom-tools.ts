@@ -1,6 +1,7 @@
+import type { ContentBlock } from "@modelcontextprotocol/sdk/types.js";
+
 import { ExtendedTool } from "./type";
-import { envs } from "./utils";
-import { handleResponseErrors } from "./utils";
+import { envs, handleResponseErrors, actionResponseToToolContent } from "./utils";
 // @ts-ignore
 import { markdown } from 'markdown';
 // @ts-ignore
@@ -40,40 +41,40 @@ export async function performCustomAction(
   actionName: string,
   actionParams: any,
   jwt: string
-) {
+): Promise<ContentBlock[] | undefined> {
   if (actionName === "CUSTOM_NOTION_CREATE_PAGE") {
-    return await performCustomNotionCreate(actionParams, jwt);
+    return await performCustomNotionCreate(actionName, actionParams, jwt);
   }
 }
 
 async function performCustomNotionCreate(
+  actionName: string,
   actionParams: any,
   jwt: string
-) {
+): Promise<ContentBlock[]> {
   console.log(`DEBUG:`, "Running custom notion action", actionParams);
   const children = await markdownToJson(actionParams.content);
-  try {
-    const url = `${envs.ACTIONKIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${jwt}`,
-      },
-      body: JSON.stringify({
-        action: "NOTION_CREATE_PAGE",
-        parameters: {
-          parent: { page_id: actionParams.parent },
-          properties: { title: [{ text: { content: actionParams.title } }] },
-          children: children,
-        }
-      }),
-    });
-    await handleResponseErrors(response);
-    return await response.json();
-  } catch (error) {
-    throw error;
-  }
+  const url = `${envs.ACTIONKIT_BASE_URL}/projects/${envs.PROJECT_ID}/actions`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({
+      action: "NOTION_CREATE_PAGE",
+      parameters: {
+        parent: { page_id: actionParams.parent },
+        properties: { title: [{ text: { content: actionParams.title } }] },
+        children: children,
+      }
+    }),
+  });
+  await handleResponseErrors(response);
+  return await actionResponseToToolContent(
+    response,
+    `actionkit://action/${actionName}`
+  );
 }
 
 async function markdownToJson(markdownString: string) {
