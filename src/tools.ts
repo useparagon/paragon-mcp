@@ -3,6 +3,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  type ContentBlock,
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { JsonResponseError, UserNotConnectedError } from "./errors";
@@ -134,7 +135,7 @@ export function registerTools({
           );
         }
 
-        if (response === null) {
+        if (response == null) {
           return {
             content: [
               {
@@ -148,9 +149,14 @@ export function registerTools({
           };
         }
 
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify(response) }],
-        };
+        // performAction/performCustomAction already produce MCP content
+        // blocks (text/image/audio/resource); the other action paths still
+        // return a raw string to be wrapped as text.
+        const content: ContentBlock[] = Array.isArray(response)
+          ? response
+          : [{ type: "text" as const, text: JSON.stringify(response) }];
+
+        return { content };
       } catch (error: any | JsonResponseError | UserNotConnectedError) {
         if (error instanceof UserNotConnectedError) {
           let setupUrl;
