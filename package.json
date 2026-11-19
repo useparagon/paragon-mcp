@@ -40,5 +40,8 @@
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.9",
     "esbuild": "^0.25.2"
+  },
+  "overrides": {
+    "proxy-addr": "2.0.8"
   }
 }
